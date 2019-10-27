@@ -46,11 +46,11 @@ def review_to_wordlist(review, remove_stopwords=True):
     return (review_text)
 
 ## Test for correctness
-numberOfRelevantQs = 5
+numberOfRelevantQs = 100
 
 #fileNameList = ['android', 'english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress', 'full']
 
-fileNameList = [ 'webmasters', 'wordpress', 'full']
+fileNameList = [ 'english' ]
 
 for a in range(len(fileNameList)):
     correctCount = 0
