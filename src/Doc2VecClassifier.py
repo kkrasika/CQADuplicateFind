@@ -28,7 +28,7 @@ def train_for_data_frame(trainingData, model):
 
     print('Row count :' + str(len(trainingData.index)))
 
-    dupYDf = trainingData.loc[trainingData['Dup'] == 'Y']
+    dupYDf = trainingData.loc[trainingData['Dup'] == 1]
     print('Dup count :' + str(len(dupYDf.index)))
 
     x = trainingData[['Q1','Q1ID', 'Q2','Q2ID']]
@@ -59,36 +59,38 @@ def train_for_data_frame(trainingData, model):
     # validq2_trans = count_vect.transform(valid_x['Q2'].values)
     #
     #
-    # xtrain_count =  scipy.sparse.hstack((trainq1_trans,trainq2_trans))
-    # xvalid_count =  scipy.sparse.hstack((validq1_trans,validq2_trans))
+    # xtrain_count_vector =  scipy.sparse.hstack((trainq1_trans,trainq2_trans))
+    # xvalid_count_vector =  scipy.sparse.hstack((validq1_trans,validq2_trans))
 
-    xtrain_count = []
-    xvalid_count = []
+    xtrain_count_vector = []
+    xvalid_count_vector = []
 
     for qid in train_x['Q1ID'].values:
         try:
-            xtrain_count.append(model.docvecs.vectors_docs[qid])
+            xtrain_count_vector.append(model.docvecs.vectors_docs[qid])
         except KeyError as e:
             print(e)
 
     for qid in valid_x['Q1ID'].values:
         try:
-            xvalid_count.append(model.docvecs.vectors_docs[qid])
+            xvalid_count_vector.append(model.docvecs.vectors_docs[qid])
         except KeyError as e:
             print(e)
 
-    print("Train length : " + str(len(xtrain_count)))
-    print("Valid length : " + str(len(xvalid_count)))
+    print("Train size : " + str(len(train_y)))
+    print('Dup count :' + str(sum(train_y)))
+    print("Valid size : " + str(len(valid_y)))
+    print('Dup count :' + str(sum(valid_y)))
 
-    #xtrain_count = scipy.sparse.hstack((xtrain_count))
-    #xvalid_count = scipy.sparse.hstack((xvalid_count))
+    #xtrain_count_vector = scipy.sparse.hstack((xtrain_count_vector))
+    #xvalid_count_vector = scipy.sparse.hstack((xvalid_count_vector))
 
-    xgtrain = csr_matrix(xtrain_count)
-    xgvalid = csr_matrix(xvalid_count)
+    xgtrain = csr_matrix(xtrain_count_vector)
+    xgvalid = csr_matrix(xvalid_count_vector)
 
     # Naive Bayes on Count Vectors
     #nb_model = naive_bayes.MultinomialNB()
-    #accuracy = train_model(nb_model, xtrain_count, xvalid_count,train_y,valid_y, False)
+    #accuracy = train_model(nb_model, xtrain_count_vector, xvalid_count_vector,train_y,valid_y, False)
     #print("Accuracy [NB, Count Vectors]: ", accuracy)
 
     xgb_model = xgb(max_depth=50, n_estimators=80, learning_rate=0.1, colsample_bytree=.7, gamma=0,
@@ -99,7 +101,7 @@ def train_for_data_frame(trainingData, model):
 
 def train_for_file(fileName, model):
     print("----- Training for file: "+fileName+' -----')
-    trainDfFromCsv = pd.read_csv('../data/processed/'+fileName+'-training-data.csv', sep=',')
+    trainDfFromCsv = pd.read_csv('../data/csv/'+fileName+'-training-data.csv', sep=',')
     trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup']]
     try:
         model = Doc2Vec.load('../data/model/int-' + str(fileName) + "-d2v.model")
@@ -122,17 +124,13 @@ def train_for_list_of_files_combined(fileNames):
     while i < len(fileNames):
         trainingData = trainingData.append(get_df_from_file(fileNames[i]))
         i += 1
-        try:
-            model = Doc2Vec.load('../data/model/int-full-d2v.model')
-        except FileNotFoundError as e:
-            print(e.errno)
+
+    try:
+        model = Doc2Vec.load('../data/model/int-full-d2v.model')
+    except FileNotFoundError as e:
+        print(e.errno)
 
     train_for_data_frame(trainingData, model)
-
-def get_df_from_file(fileName):
-    trainDfFromCsv = pd.read_csv('../data/processed/' + fileName + '-training-data.csv', sep=',')
-    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup']]
-    return trainingData
 
 def main():
     fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']

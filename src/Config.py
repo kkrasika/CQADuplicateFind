@@ -1,0 +1,6 @@
+SIAMESE_MODEL_FILE_NAME = 'SiameseLSTM.h5'
+
+
+dupdetect_config = {
+	'SIAMESE_MODEL_FILE_NAME': SIAMESE_MODEL_FILE_NAME
+}

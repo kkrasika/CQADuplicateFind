@@ -96,7 +96,7 @@ class SiameseBiLSTM:
 
         early_stopping = EarlyStopping(monitor='val_loss', patience=3)
 
-        checkpoint_dir = model_save_directory + '/'
+        checkpoint_dir = model_save_directory + '/siamese-lstm/'
 
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)

@@ -60,7 +60,7 @@ for a in range(len(fileNameList)):
     except FileNotFoundError as e:
         print(e.errno)
 
-    df = pd.read_json('../data/raw/' + str(fileNameList[a]) + '_questions.json', orient='index')
+    df = pd.read_json('../data/json/' + str(fileNameList[a]) + '_questions.json', orient='index')
     df['QuestionID'] = df.index
     df = df[['QuestionID', 'title', 'dups']]
     numberOfTestData = df['QuestionID'].size

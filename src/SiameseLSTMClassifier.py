@@ -91,7 +91,7 @@ def train_for_data_frame(trainingData):
                             CONFIG.activation_function, CONFIG.validation_split_ratio)
 
     siamese.train_model(sentences_pairs, is_similar, embedding_meta_data, model_save_directory='../data/model/')
-    best_model_path = '../data/model/'+siamese_config['MODEL_FILE_NAME']
+    best_model_path = '../data/model/siamese-lstm/'+siamese_config['MODEL_FILE_NAME']
 
     model = load_model(best_model_path)
 
@@ -110,7 +110,7 @@ def train_for_data_frame(trainingData):
 
 def train_for_file(fileName):
     print("----- Training for file: "+fileName+' -----')
-    trainDfFromCsv = pd.read_csv('../data/processed/'+fileName+'-training-data.csv', sep=',')
+    trainDfFromCsv = pd.read_csv('../data/csv/'+fileName+'-training-data.csv', sep=',')
     trainingData = trainDfFromCsv[['Q1', 'Q2', 'Dup']]
     train_for_data_frame(trainingData)
 
@@ -129,7 +129,7 @@ def train_for_list_of_files_combined(fileNames):
     train_for_data_frame(trainingData)
 
 def get_df_from_file(fileName):
-    trainDfFromCsv = pd.read_csv('../data/processed/' + fileName + '-training-data.csv', sep=',')
+    trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
     trainingData = trainDfFromCsv[['Q1', 'Q2', 'Dup']]
     return trainingData
 

@@ -48,7 +48,7 @@ def review_to_wordlist(review, remove_stopwords=True):
     # Return a list of words
     return (review_text)
 
-def build_model_and_save(questions_labeled, model_name):
+def build_model_and_save(questions_labeled, directory, model_name):
     model = Doc2Vec(dm=1, min_count=1, window=10, size=150, sample=1e-4, negative=10)
     model.build_vocab(questions_labeled)
     # Train the model with 20 epochs
@@ -56,7 +56,7 @@ def build_model_and_save(questions_labeled, model_name):
         model.train(questions_labeled, epochs=model.iter, total_examples=model.corpus_count)
         print(str(model_name)+" Epoch #{} is complete.".format(epoch + 1))
 
-    model.save('../data/model/' + model_name + "-d2v.model")
+    model.save('../data/model/' + directory + '/' + model_name + "-d2v.model")
 
 def main():
     questions_labeled_full = []
@@ -70,7 +70,7 @@ def main():
         questions_labeled = []
         questions_labeled_int = []
 
-        df = pd.read_json('../data/raw/' + str(fileNameList[a]) + '_questions.json', orient='index')
+        df = pd.read_json('../data/json/' + str(fileNameList[a]) + '_questions.json', orient='index')
         df['QuestionID'] = df.index
         df = df[['QuestionID', 'title', 'dups']]
 
@@ -92,11 +92,11 @@ def main():
                 progress = i / df['QuestionID'].size * 100
                 print("Tagging {}% complete".format(round(progress, 2)) + " of file : " + fileNameList[a])
 
-        build_model_and_save(questions_labeled, str(fileNameList[a]))
-        build_model_and_save(questions_labeled_int, 'int-'+str(fileNameList[a]))
+        build_model_and_save(questions_labeled, 'doc2vec/text-labeled', str(fileNameList[a]), )
+        build_model_and_save(questions_labeled_int, 'doc2vec/int-labeled', str(fileNameList[a]))
 
-    build_model_and_save(questions_labeled_full, 'full')
-    build_model_and_save(questions_labeled_full_int, 'int-full')
+    build_model_and_save(questions_labeled_full, 'doc2vec/text-labeled', 'full')
+    build_model_and_save(questions_labeled_full_int, 'doc2vec/int-labeled', 'full')
 
 if __name__ == '__main__':
     main()
