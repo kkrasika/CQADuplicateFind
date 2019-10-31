@@ -15,7 +15,7 @@ def train_model(train_x, train_y, model_type):
     classifier = None
     if model_type is 'NB':
         classifier = naive_bayes.MultinomialNB()
-    else:
+    elif model_type is 'XGB':
         classifier = XGBClassifier(max_depth=50, n_estimators=80, learning_rate=0.1, colsample_bytree=.7, gamma=0,
                                   reg_alpha=4, objective='binary:logistic', eta=0.3, silent=1, subsample=0.8)
 
@@ -23,7 +23,7 @@ def train_model(train_x, train_y, model_type):
     return classifier.fit(train_x, train_y)
 
 def get_count_vectors_train_valid_split(df_for_file):
-    train_x, valid_x, train_y, valid_y = get_train_test_split_of_dataframe(df_for_file)
+    train_x, valid_x, train_y, valid_y = get_train_test_split_of_dataframe(df_for_file, False)
     # label encode the target variable
     encoder = preprocessing.LabelEncoder()
     train_y = encoder.fit_transform(train_y)
