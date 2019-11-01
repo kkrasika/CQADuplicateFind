@@ -30,7 +30,7 @@ class SiameseBiLSTM:
         self.rate_drop_dense = rate_drop_dense
         self.validation_split_ratio = validation_split_ratio
 
-    def train_model(self, sentences_pair, is_similar, embedding_meta_data, model_save_directory='./'):
+    def train_model(self, sentences_pair, is_similar, embedding_meta_data, filename, model_save_directory='./'):
         """
         Train Siamese network to find similarity between sentences in `sentences_pair`
             Steps Involved:
@@ -96,12 +96,12 @@ class SiameseBiLSTM:
 
         early_stopping = EarlyStopping(monitor='val_loss', patience=3)
 
-        checkpoint_dir = model_save_directory + '/siamese-lstm/'
+        checkpoint_dir = model_save_directory
 
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
 
-        bst_model_path = checkpoint_dir + siamese_config['MODEL_FILE_NAME']
+        bst_model_path = checkpoint_dir + filename+'-'+siamese_config['MODEL_FILE_NAME']
 
         model_checkpoint = ModelCheckpoint(bst_model_path, save_best_only=True, save_weights_only=False)
 
