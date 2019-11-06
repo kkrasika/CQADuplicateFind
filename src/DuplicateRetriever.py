@@ -56,7 +56,7 @@ for a in range(len(fileNameList)):
     correctCount = 0
     dupCount = 0
     try:
-        model = Doc2Vec.load('../data/model/'+str(fileNameList[a])+"-d2v.model")
+        model = Doc2Vec.load('../data/model/doc2vec/text-labeled/'+str(fileNameList[a])+"-d2v.model")
     except FileNotFoundError as e:
         print(e.errno)
 

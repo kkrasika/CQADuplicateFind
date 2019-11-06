@@ -1,9 +1,10 @@
 # This converts json data sets in to csv files which maintains given number of question pairs including duplicates of defined percentage
 
 import pandas as pd
+import math
 
 recordCount = 1000
-duplicatePercentage = 5
+duplicatePercentage = 33
 
 def get_records(df, recordids):
     return df.loc[df['QuestionID'].isin(recordids)]
@@ -19,7 +20,7 @@ def prepareDataSet(df, inputData):
 
     count = 0
     dupCount = 0
-    maxNonDupCountPerQuestion = (100/duplicatePercentage)-1
+    maxNonDupCountPerQuestion = (math.floor(100/duplicatePercentage))-1
 
     result = []
 
