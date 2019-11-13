@@ -1,8 +1,6 @@
 from model import SiameseBiLSTM
 from inputHandler import word_embed_meta_data, create_test_data
 from config import siamese_config
-import pandas as pd
-from operator import itemgetter
 from keras.models import load_model
 import numpy as np
 from sklearn import preprocessing
@@ -84,13 +82,7 @@ def main():
 
     # Split / Model / Evaluate for each data set and for combined.
     # For each file
-    for fileName in fileNameList:
-        df_for_file = get_df_from_csv_file(fileName)
-        train_x, train_y, valid_x, valid_y, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
-        model_path = train_model(train_x, train_y, embedding_meta_data, fileName)
-        siamese_lstm_model = load_model(model_path)
-        preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
-        print('Accuracy for : '+fileName+' Siamese LSTM ' + str(str(accuracy[1])))
+
 
     # For combined file
     df_combined = get_df_from_csv_files_combined(fileNameList)
