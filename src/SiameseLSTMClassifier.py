@@ -5,6 +5,10 @@ from keras.models import load_model
 import numpy as np
 from sklearn import preprocessing
 
+from nltk.corpus import stopwords
+from nltk.stem import SnowballStemmer
+import re
+
 from DataSetUtil import get_doc2vec_model_for_csv_file, get_df_from_csv_files_combined, get_train_test_split_of_dataframe, get_df_from_csv_file
 
 def evaluate_model(model, valid_x, valid_y):
@@ -37,6 +41,49 @@ def train_model(train_x, train_y, embedding_meta_data, filename):
     best_model_path = siamese.train_model(train_x, train_y, embedding_meta_data,filename, model_save_directory='../data/model/siamese-lstm/')
     return best_model_path
 
+def review_to_wordlist(reviews, remove_stopwords=True):
+    resultant_list = []
+    # Clean the text, with the option to remove stopwords.
+    for review in reviews:
+        # Convert words to lower case and split them
+        words = review.lower().split()
+
+        # Optionally remove stop words (true by default)
+        if remove_stopwords:
+            stops = set(stopwords.words("english"))
+            words = [w for w in words if not w in stops]
+
+        review_text = " ".join(words)
+
+        # Clean the text
+        review_text = re.sub(r"[^A-Za-z0-9(),!.?\'\`]", " ", review_text)
+        review_text = re.sub(r"\'s", " 's ", review_text)
+        review_text = re.sub(r"\'ve", " 've ", review_text)
+        review_text = re.sub(r"n\'t", " 't ", review_text)
+        review_text = re.sub(r"\'re", " 're ", review_text)
+        review_text = re.sub(r"\'d", " 'd ", review_text)
+        review_text = re.sub(r"\'ll", " 'll ", review_text)
+        review_text = re.sub(r",", " ", review_text)
+        review_text = re.sub(r"\.", " ", review_text)
+        review_text = re.sub(r"!", " ", review_text)
+        review_text = re.sub(r"\(", " ( ", review_text)
+        review_text = re.sub(r"\)", " ) ", review_text)
+        review_text = re.sub(r"\?", " ", review_text)
+        review_text = re.sub(r"\s{2,}", " ", review_text)
+
+        words = review_text.split()
+
+        # Shorten words to their stems
+        stemmer = SnowballStemmer('english')
+        stemmed_words = [stemmer.stem(word) for word in words]
+
+        review_text = " ".join(stemmed_words)
+
+        # Return a list of words
+        resultant_list.append(review_text)
+
+    return resultant_list
+
 def get_doc2vec_vectors_train_valid_split(trainingData):
 
     # split the dataset into training and validation datasets
@@ -47,12 +94,12 @@ def get_doc2vec_vectors_train_valid_split(trainingData):
     train_y = encoder.fit_transform(train_y)
     valid_y = encoder.fit_transform(valid_y)
 
-    sentences1 = list(train_x['Q1'])
-    sentences2 = list(train_x['Q2'])
+    sentences1 = review_to_wordlist(train_x['Q1'])
+    sentences2 = review_to_wordlist(train_x['Q2'])
     is_similar = list(train_y)
 
-    sentences1_validate = list(valid_x['Q1'])
-    sentences2_validate = list(valid_x['Q2'])
+    sentences1_validate = review_to_wordlist(valid_x['Q1'])
+    sentences2_validate = review_to_wordlist(valid_x['Q2'])
     is_similar_validate = list(valid_y)
 
     tokenizer, embedding_matrix = word_embed_meta_data(sentences1 + sentences2, siamese_config['EMBEDDING_DIM'])
@@ -79,10 +126,17 @@ def get_doc2vec_vectors_train_valid_split(trainingData):
 
 def main():
     fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
+    #fileNameList = ['android']
 
     # Split / Model / Evaluate for each data set and for combined.
     # For each file
-
+    for fileName in fileNameList:
+        df_for_file = get_df_from_csv_file(fileName)
+        train_x, train_y, valid_x, valid_y, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
+        model_path = train_model(train_x, train_y, embedding_meta_data, fileName)
+        siamese_lstm_model = load_model(model_path)
+        preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
+        print('Accuracy for : '+fileName+' Siamese LSTM ' + str(str(accuracy[1])))
 
     # For combined file
     df_combined = get_df_from_csv_files_combined(fileNameList)
