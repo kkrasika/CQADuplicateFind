@@ -6,6 +6,7 @@ def get_df_from_csv_file(fileName):
     print("----- Data frame for domain : " + str(fileName) + ' -----')
     trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
     trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup']]
+    trainingData = trainingData[:4500]
     return trainingData
 
 def get_doc2vec_model_for_csv_file(fileName):

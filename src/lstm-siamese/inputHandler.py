@@ -1,6 +1,7 @@
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
 from gensim.models import Word2Vec
+from gensim.models import FastText
 import numpy as np
 import gc
 import pandas as pd
@@ -57,7 +58,7 @@ def word_embed_meta_data(documents, embedding_dim):
         tokenizer (keras.preprocessing.text.Tokenizer): keras tokenizer object
         embedding_matrix (dict): dict with word_index and vector mapping
     """
-    documents = [x.lower().split() for x in documents]
+    documents = [str(x).lower().split() for x in documents]
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(documents)
     word_vector = train_word2vec(documents, embedding_dim)
@@ -89,8 +90,8 @@ def create_train_dev_set(tokenizer, sentences_pair, is_similar, max_sequence_len
         labels_val (np.array): array containing similarity score for validation data
         leaks_val (np.array): array of validation leaks features
     """
-    sentences1 = [x[0].lower() for x in sentences_pair]
-    sentences2 = [x[1].lower() for x in sentences_pair]
+    sentences1 = [str(x[0]).lower() for x in sentences_pair]
+    sentences2 = [str(x[1]).lower() for x in sentences_pair]
     train_sequences_1 = tokenizer.texts_to_sequences(sentences1)
     train_sequences_2 = tokenizer.texts_to_sequences(sentences2)
     leaks = [[len(set(x1)), len(set(x2)), len(set(x1).intersection(x2))]
@@ -138,8 +139,8 @@ def create_test_data(tokenizer, test_sentences_pair, max_sequence_length):
         test_data_1 (list): list of input features for training set from sentences1
         test_data_2 (list): list of input features for training set from sentences2
     """
-    test_sentences1 = [x[0].lower() for x in test_sentences_pair]
-    test_sentences2 = [x[1].lower() for x in test_sentences_pair]
+    test_sentences1 = [str(x[0]).lower() for x in test_sentences_pair]
+    test_sentences2 = [str(x[1]).lower() for x in test_sentences_pair]
 
     test_sequences_1 = tokenizer.texts_to_sequences(test_sentences1)
     test_sequences_2 = tokenizer.texts_to_sequences(test_sentences2)
