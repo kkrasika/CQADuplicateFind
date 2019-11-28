@@ -99,6 +99,7 @@ def prepareDataSet(df, non_dup_rows, dup_rows):
         q2Body = review_to_wordlist(strip_tags(dups.iloc[0].loc['body']))
         q2Id = str(dups.iloc[0].loc['QuestionID'])
         result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Dup': 1})
+        #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title , 'Dup': 1})
         dupCount += 1
 
         nonDupCountPerQuestion = 0
@@ -109,6 +110,7 @@ def prepareDataSet(df, non_dup_rows, dup_rows):
             q2Body = review_to_wordlist(strip_tags(nonDupRow.loc['body']))
             q2Id = str(nonDupRow.loc['QuestionID'])
             result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Dup': 0})
+            # result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title, 'Dup': 0})
             nonDupCountPerQuestion += 1
             nonDupCount += 1
 
@@ -123,6 +125,7 @@ def prepareDataSet(df, non_dup_rows, dup_rows):
                 q2Body = review_to_wordlist(strip_tags(nonDupRowFromEnd.loc['body']))
                 q2Id  = str(nonDupRowFromEnd.loc['QuestionID'])
                 result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body,'Q2ID': q2Id,  'Q2': q2Title+" "+q2Body, 'Dup': 0})
+                #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title, 'Dup': 0})
                 nonDupCountPerQuestion += 1
                 nonDupCount += 1
 

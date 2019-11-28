@@ -4,57 +4,21 @@ from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 import re
 from gensim.models import Doc2Vec
-
-def review_to_wordlist(review, remove_stopwords=True):
-    # Clean the text, with the option to remove stopwords.
-
-    # Convert words to lower case and split them
-    words = review.lower().split()
-
-    # Optionally remove stop words (true by default)
-    if remove_stopwords:
-        stops = set(stopwords.words("english"))
-        words = [w for w in words if not w in stops]
-
-    review_text = " ".join(words)
-
-    # Clean the text
-    review_text = re.sub(r"[^A-Za-z0-9(),!.?\'\`]", " ", review_text)
-    review_text = re.sub(r"\'s", " 's ", review_text)
-    review_text = re.sub(r"\'ve", " 've ", review_text)
-    review_text = re.sub(r"n\'t", " 't ", review_text)
-    review_text = re.sub(r"\'re", " 're ", review_text)
-    review_text = re.sub(r"\'d", " 'd ", review_text)
-    review_text = re.sub(r"\'ll", " 'll ", review_text)
-    review_text = re.sub(r",", " ", review_text)
-    review_text = re.sub(r"\.", " ", review_text)
-    review_text = re.sub(r"!", " ", review_text)
-    review_text = re.sub(r"\(", " ( ", review_text)
-    review_text = re.sub(r"\)", " ) ", review_text)
-    review_text = re.sub(r"\?", " ", review_text)
-    review_text = re.sub(r"\s{2,}", " ", review_text)
-
-    words = review_text.split()
-
-    # Shorten words to their stems
-    stemmer = SnowballStemmer('english')
-    stemmed_words = [stemmer.stem(word) for word in words]
-
-    review_text = " ".join(stemmed_words)
-
-    # Return a list of words
-    return (review_text)
+from DataSetUtil import review_to_wordlist
 
 ## Test for correctness
-numberOfRelevantQs = 100
+numberOfRelevantQs = 10
 
 #fileNameList = ['android', 'english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress', 'full']
 
 fileNameList = [ 'english' ]
 
 for a in range(len(fileNameList)):
-    correctCount = 0
-    dupCount = 0
+    foundDupsAll = 0
+    queriesWithDuplicates = 0
+    sumOfAveragePrecision = 0.0
+    precisionAtSum = 0
+
     try:
         model = Doc2Vec.load('../data/model/doc2vec/text-labeled/'+str(fileNameList[a])+"-d2v.model")
     except FileNotFoundError as e:
@@ -74,7 +38,7 @@ for a in range(len(fileNameList)):
         v1 = model.infer_vector(test_data.split())
 
         if(len(dupids)>0):
-            dupCount += 1
+            queriesWithDuplicates += 1
             qid = df.iloc[i].loc['QuestionID']
 
             vec = model.docvecs[str(qid)]
@@ -82,15 +46,23 @@ for a in range(len(fileNameList)):
             # to find most similar doc using tags
             similar_doc = model.docvecs.most_similar([v1], topn=numberOfRelevantQs)
             #print("Similar doc :" + str(similar_doc))
-
+            foundDups = 0
+            apForQuery = 0.0
             for j in range(0, numberOfRelevantQs):
                 similarDoc = similar_doc[j]
                 if(similarDoc[0] in dupids):
-                    correctCount += 1
+                    foundDups += 1
+                    apForQuery += foundDups/(j+1)
+
+            if(foundDups>0):
+                sumOfAveragePrecision = sumOfAveragePrecision + (apForQuery/foundDups)
+            precisionAtSum += foundDups / numberOfRelevantQs
+            foundDupsAll+=foundDups
 
     print(str(fileNameList[a])+" Test Data Count : " + str(numberOfTestData))
-    print(str(fileNameList[a])+" Duplicate Count : " + str(dupCount))
-    print(str(fileNameList[a])+" Correct Count : " + str(correctCount))
-    print(str(fileNameList[a]) + " Accuracy : " + str(correctCount*100/dupCount))
+    print(str(fileNameList[a])+" Relevant Query Count : " + str(queriesWithDuplicates))
+    print(str(fileNameList[a]) + " Found within "+str(numberOfRelevantQs)+" Count : " + str(foundDupsAll))
+    print(str(fileNameList[a]) + " Precision @ "+str(numberOfRelevantQs)+" : " + str(precisionAtSum/queriesWithDuplicates))
+    print(str(fileNameList[a]) + " Accuracy : " + str(sumOfAveragePrecision/queriesWithDuplicates))
 
 #print(model.docvecs['1'])

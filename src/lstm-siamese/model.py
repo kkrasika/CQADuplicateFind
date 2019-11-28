@@ -110,7 +110,7 @@ class SiameseBiLSTM:
         model.fit([train_data_x1, train_data_x2, leaks_train], train_labels,
                   validation_data=([val_data_x1, val_data_x2, leaks_val], val_labels),
                   epochs=200, batch_size=64, shuffle=True,
-                  callbacks=[early_stopping, model_checkpoint, tensorboard])
+                  callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=0)
 
         return bst_model_path
 

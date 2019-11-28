@@ -5,48 +5,7 @@ from nltk.stem import SnowballStemmer
 import re
 from gensim.models.doc2vec import TaggedDocument
 from gensim.models import Doc2Vec
-
-
-
-def review_to_wordlist(review, remove_stopwords=True):
-    # Clean the text, with the option to remove stopwords.
-
-    # Convert words to lower case and split them
-    words = review.lower().split()
-
-    # Optionally remove stop words (true by default)
-    if remove_stopwords:
-        stops = set(stopwords.words("english"))
-        words = [w for w in words if not w in stops]
-
-    review_text = " ".join(words)
-
-    # Clean the text
-    review_text = re.sub(r"[^A-Za-z0-9(),!.?\'\`]", " ", review_text)
-    review_text = re.sub(r"\'s", " 's ", review_text)
-    review_text = re.sub(r"\'ve", " 've ", review_text)
-    review_text = re.sub(r"n\'t", " 't ", review_text)
-    review_text = re.sub(r"\'re", " 're ", review_text)
-    review_text = re.sub(r"\'d", " 'd ", review_text)
-    review_text = re.sub(r"\'ll", " 'll ", review_text)
-    review_text = re.sub(r",", " ", review_text)
-    review_text = re.sub(r"\.", " ", review_text)
-    review_text = re.sub(r"!", " ", review_text)
-    review_text = re.sub(r"\(", " ( ", review_text)
-    review_text = re.sub(r"\)", " ) ", review_text)
-    review_text = re.sub(r"\?", " ", review_text)
-    review_text = re.sub(r"\s{2,}", " ", review_text)
-
-    words = review_text.split()
-
-    # Shorten words to their stems
-    stemmer = SnowballStemmer('english')
-    stemmed_words = [stemmer.stem(word) for word in words]
-
-    review_text = " ".join(stemmed_words)
-
-    # Return a list of words
-    return (review_text)
+from DataSetUtil import review_to_wordlist
 
 def build_model_and_save(questions_labeled, directory, model_name):
     model = Doc2Vec(dm=1, min_count=1, window=10, size=150, sample=1e-4, negative=10)

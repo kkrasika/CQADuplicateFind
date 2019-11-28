@@ -9,7 +9,7 @@ from DataSetUtil import get_doc2vec_model_for_csv_file, get_df_from_csv_files_co
 
 def evaluate_model(model, valid_x, valid_y):
 
-    preds = list(model.predict(valid_x, verbose=1).ravel())
+    preds = list(model.predict(valid_x, verbose=0).ravel())
     score = model.evaluate(valid_x, np.array(valid_y), verbose=0)
 
     return preds, score
