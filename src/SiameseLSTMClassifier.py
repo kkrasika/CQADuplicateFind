@@ -1,9 +1,10 @@
 from model import SiameseBiLSTM
 from inputHandler import word_embed_meta_data, create_test_data
 from config import siamese_config
-from keras.models import load_model
+from tensorflow.python.keras.models import load_model
 import numpy as np
 from sklearn import preprocessing
+from layers.attention import AttentionLayer
 
 from DataSetUtil import get_doc2vec_model_for_csv_file, get_df_from_csv_files_combined, get_train_test_split_of_dataframe, get_df_from_csv_file
 
@@ -78,6 +79,7 @@ def get_doc2vec_vectors_train_valid_split(trainingData):
     return sentences_pairs, is_similar, test_data_x, is_similar_validate, embedding_meta_data
 
 def main():
+
     fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
     #fileNameList = ['mathematica']
     #fileNameList = ['physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
@@ -86,18 +88,20 @@ def main():
     # Split / Model / Evaluate for each data set and for combined.
     # For each file
     for fileName in fileNameList:
+        outputFile = open('../data/output/result.txt', 'a')
         df_for_file = get_df_from_csv_file(fileName)
         train_x, train_y, valid_x, valid_y, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
         model_path = train_model(train_x, train_y, embedding_meta_data, fileName)
-        siamese_lstm_model = load_model(model_path)
+        siamese_lstm_model = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer})
         preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
-        print('Accuracy for : '+fileName+' Siamese LSTM ' + str(str(accuracy[1])))
+        print('Accuracy for : '+fileName+' Siamese LSTM ' + str(str(accuracy[1])), file=outputFile)
+        outputFile.close()
 
     # For combined file
     df_combined = get_df_from_csv_files_combined(fileNameList)
     train_x, train_y, valid_x, valid_y,embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_combined)
     model_path = train_model(train_x, train_y, embedding_meta_data, 'full')
-    siamese_lstm_model = load_model(model_path)
+    siamese_lstm_model = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer})
     preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
     print('Accuracy for : ' + 'full' + ' Siamese LSTM ' + str(accuracy[1]))
 

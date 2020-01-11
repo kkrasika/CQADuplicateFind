@@ -1,12 +1,12 @@
 # keras imports
-from keras.layers import Dense, Input, LSTM, Dropout, Bidirectional
-from keras.callbacks import EarlyStopping, ModelCheckpoint
-from keras.layers.normalization import BatchNormalization
-from keras.layers.embeddings import Embedding
-from keras.layers.merge import concatenate
-from keras.callbacks import TensorBoard
-from keras.models import load_model
-from keras.models import Model
+from tensorflow.python.keras.layers import Dense, Input, LSTM, Dropout, Bidirectional, Reshape, Concatenate
+from tensorflow.python.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.python.keras.layers.normalization import BatchNormalization
+from tensorflow.python.keras.layers.embeddings import Embedding
+from tensorflow.python.keras.layers.merge import concatenate
+from tensorflow.python.keras.callbacks import TensorBoard
+from tensorflow.python.keras.models import load_model
+from tensorflow.python.keras.models import Model
 from config import siamese_config
 
 # std imports
@@ -15,6 +15,7 @@ import gc
 import os
 
 from inputHandler import create_train_dev_set
+from layers.attention import AttentionLayer
 
 
 
@@ -70,12 +71,19 @@ class SiameseBiLSTM:
         # Creating LSTM Encoder layer for First Sentence
         sequence_1_input = Input(shape=(self.max_sequence_length,), dtype='int32')
         embedded_sequences_1 = embedding_layer(sequence_1_input)
-        x1 = lstm_layer(embedded_sequences_1)
+        #x1 = lstm_layer(embedded_sequences_1)
 
         # Creating LSTM Encoder layer for Second Sentence
         sequence_2_input = Input(shape=(self.max_sequence_length,), dtype='int32')
         embedded_sequences_2 = embedding_layer(sequence_2_input)
-        x2 = lstm_layer(embedded_sequences_2)
+        #x2 = lstm_layer(embedded_sequences_2)
+
+        # Attention layer
+        attn_layer = AttentionLayer(name='attention_layer')
+        xx, attn_states = attn_layer([embedded_sequences_1, embedded_sequences_2])
+        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([embedded_sequences_2, xx])
+
+        xxx = lstm_layer(decoder_concat_input)
 
         # Creating leaks input
         leaks_input = Input(shape=(leaks_train.shape[1],))
@@ -83,7 +91,7 @@ class SiameseBiLSTM:
 
         # Merging two LSTM encodes vectors from sentences to
         # pass it to dense layer applying dropout and batch normalisation
-        merged = concatenate([x1, x2, leaks_dense])
+        merged = concatenate([xxx, leaks_dense])
         merged = BatchNormalization()(merged)
         merged = Dropout(self.rate_drop_dense)(merged)
         merged = Dense(self.number_dense_units, activation=self.activation_function)(merged)
@@ -109,8 +117,8 @@ class SiameseBiLSTM:
 
         model.fit([train_data_x1, train_data_x2, leaks_train], train_labels,
                   validation_data=([val_data_x1, val_data_x2, leaks_val], val_labels),
-                  epochs=200, batch_size=64, shuffle=True,
-                  callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=0)
+                  epochs=25, batch_size=64, shuffle=True,
+                  callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=1)
 
         return bst_model_path
 
