@@ -6,6 +6,10 @@ import numpy as np
 import gc
 import pandas as pd
 
+import tensorflow_hub as hub
+import tensorflow as tf
+from BERTLoader import create_tokenizer, convert_sentences_to_features
+
 
 def train_word2vec(documents, embedding_dim):
     """
@@ -94,18 +98,71 @@ def create_train_dev_set(tokenizer, sentences_pair, is_similar, max_sequence_len
     sentences2 = [str(x[1]).lower() for x in sentences_pair]
     train_sequences_1 = tokenizer.texts_to_sequences(sentences1)
     train_sequences_2 = tokenizer.texts_to_sequences(sentences2)
+
     leaks = [[len(set(x1)), len(set(x2)), len(set(x1).intersection(x2))]
              for x1, x2 in zip(train_sequences_1, train_sequences_2)]
 
-    df = pd.DataFrame.from_records(leaks)
-    df.columns = ['a', 'b','c']
-    df.groupby(['a']).agg(['count'])
-    df.groupby(['b']).agg(['count'])
-
-    train_padded_data_1 = pad_sequences(train_sequences_1, maxlen=max_sequence_length)
-    train_padded_data_2 = pad_sequences(train_sequences_2, maxlen=max_sequence_length)
-    train_labels = np.array(is_similar)
     leaks = np.array(leaks)
+
+    module = hub.Module('../data/model/bert/1')
+
+    input_ids = tf.placeholder(dtype=tf.int32, shape=[None, None])
+    input_mask = tf.placeholder(dtype=tf.int32, shape=[None, None])
+    segment_ids = tf.placeholder(dtype=tf.int32, shape=[None, None])
+
+    bert_inputs = dict(
+        input_ids=input_ids,
+        input_mask=input_mask,
+        segment_ids=segment_ids)
+
+    bert_outputs = module(bert_inputs, signature="tokens", as_dict=True)
+
+    bert_tokenizer = create_tokenizer('../data/model/bert/1/assets/vocab.txt', do_lower_case=False)
+
+    batch_size = 100
+    outx1 = None
+
+    with tf.Session() as sess:
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+        train_count = len(sentences1)
+
+        for start, end in zip(range(0, train_count, batch_size),  range(batch_size, train_count + 1, batch_size)):
+            sentences_sub = sentences1[start:end]
+            input_ids_vals, input_mask_vals, segment_ids_vals = convert_sentences_to_features(sentences_sub,
+                                                                                              bert_tokenizer,
+                                                                                              max_sequence_length)
+            out1 = sess.run(bert_outputs, feed_dict={input_ids: input_ids_vals, input_mask: input_mask_vals,
+                                                     segment_ids: segment_ids_vals})
+
+            if (start==0):
+                outx1 = out1['sequence_output']
+            else:
+                outx1 = np.append(outx1, out1['sequence_output'],  axis=0)
+
+    outx2 = None
+
+    with tf.Session() as sess:
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+        train_count = len(sentences2)
+
+        for start, end in zip(range(0, train_count, batch_size),  range(batch_size, train_count + 1, batch_size)):
+            sentences_sub = sentences2[start:end]
+            input_ids_vals, input_mask_vals, segment_ids_vals = convert_sentences_to_features(sentences_sub,
+                                                                                              bert_tokenizer,
+                                                                                              max_sequence_length)
+            out1 = sess.run(bert_outputs, feed_dict={input_ids: input_ids_vals, input_mask: input_mask_vals,
+                                                     segment_ids: segment_ids_vals})
+
+            if (start==0):
+                outx2 = out1['sequence_output']
+            else:
+                outx2 = np.append(outx2, out1['sequence_output'],  axis=0)
+
+    train_padded_data_1 = outx1 #pad_sequences(out1['pooled_output'], maxlen=768)
+    train_padded_data_2 = outx2 #pad_sequences(out2['pooled_output'], maxlen=768)
+    train_labels = np.array(is_similar)
 
     shuffle_indices = np.random.permutation(np.arange(len(train_labels)))
     train_data_1_shuffled = train_padded_data_1[shuffle_indices]
@@ -147,8 +204,64 @@ def create_test_data(tokenizer, test_sentences_pair, max_sequence_length):
     leaks_test = [[len(set(x1)), len(set(x2)), len(set(x1).intersection(x2))]
                   for x1, x2 in zip(test_sequences_1, test_sequences_2)]
 
+    module = hub.Module('../data/model/bert/1')
+
+    input_ids = tf.placeholder(dtype=tf.int32, shape=[None, None])
+    input_mask = tf.placeholder(dtype=tf.int32, shape=[None, None])
+    segment_ids = tf.placeholder(dtype=tf.int32, shape=[None, None])
+
+    bert_inputs = dict(
+        input_ids=input_ids,
+        input_mask=input_mask,
+        segment_ids=segment_ids)
+
+    bert_outputs = module(bert_inputs, signature="tokens", as_dict=True)
+
+    bert_tokenizer = create_tokenizer('../data/model/bert/1/assets/vocab.txt', do_lower_case=False)
+
+    batch_size = 100
+    outx1 = None
+
+    with tf.Session() as sess:
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+        train_count = len(test_sentences1)
+
+        for start, end in zip(range(0, train_count, batch_size), range(batch_size, train_count + 1, batch_size)):
+            sentences_sub = test_sentences1[start:end]
+            input_ids_vals, input_mask_vals, segment_ids_vals = convert_sentences_to_features(sentences_sub,
+                                                                                              bert_tokenizer,
+                                                                                              max_sequence_length)
+            out1 = sess.run(bert_outputs, feed_dict={input_ids: input_ids_vals, input_mask: input_mask_vals,
+                                                     segment_ids: segment_ids_vals})
+
+            if (start == 0):
+                outx1 = out1['sequence_output']
+            else:
+                outx1 = np.append(outx1, out1['sequence_output'], axis=0)
+
+    outx2 = None
+
+    with tf.Session() as sess:
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+        train_count = len(test_sentences2)
+
+        for start, end in zip(range(0, train_count, batch_size), range(batch_size, train_count + 1, batch_size)):
+            sentences_sub = test_sentences2[start:end]
+            input_ids_vals, input_mask_vals, segment_ids_vals = convert_sentences_to_features(sentences_sub,
+                                                                                              bert_tokenizer,
+                                                                                              max_sequence_length)
+            out1 = sess.run(bert_outputs, feed_dict={input_ids: input_ids_vals, input_mask: input_mask_vals,
+                                                     segment_ids: segment_ids_vals})
+
+            if (start == 0):
+                outx2 = out1['sequence_output']
+            else:
+                outx2 = np.append(outx2, out1['sequence_output'], axis=0)
+
     leaks_test = np.array(leaks_test)
-    test_data_1 = pad_sequences(test_sequences_1, maxlen=max_sequence_length)
-    test_data_2 = pad_sequences(test_sequences_2, maxlen=max_sequence_length)
+    test_data_1 = outx1 #pad_sequences(test_sequences_1, maxlen=max_sequence_length)
+    test_data_2 = outx2 #pad_sequences(test_sequences_2, maxlen=max_sequence_length)
 
     return test_data_1, test_data_2, leaks_test

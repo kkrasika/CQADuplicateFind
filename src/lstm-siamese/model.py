@@ -14,8 +14,12 @@ import time
 import gc
 import os
 
+import tensorflow_hub as hub
+import tensorflow as tf
 from inputHandler import create_train_dev_set
 from layers.attention import AttentionLayer
+import tokenization
+from BERTLoader import create_tokenizer, convert_sentence_to_features
 
 
 
@@ -48,6 +52,7 @@ class SiameseBiLSTM:
         Returns:
             return (best_model_path):  path of best model
         """
+
         tokenizer, embedding_matrix = embedding_meta_data['tokenizer'], embedding_meta_data['embedding_matrix']
 
         train_data_x1, train_data_x2, train_labels, leaks_train, \
@@ -69,21 +74,32 @@ class SiameseBiLSTM:
         lstm_layer = Bidirectional(LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm))
 
         # Creating LSTM Encoder layer for First Sentence
-        sequence_1_input = Input(shape=(self.max_sequence_length,), dtype='int32')
-        embedded_sequences_1 = embedding_layer(sequence_1_input)
+        sequence_1_input = Input(shape=(self.max_sequence_length, 768), dtype='float')
+        #embedded_sequences_1 = embedding_layer(sequence_1_input)
+
         #x1 = lstm_layer(embedded_sequences_1)
 
         # Creating LSTM Encoder layer for Second Sentence
-        sequence_2_input = Input(shape=(self.max_sequence_length,), dtype='int32')
-        embedded_sequences_2 = embedding_layer(sequence_2_input)
+        sequence_2_input = Input(shape=(self.max_sequence_length, 768), dtype='float')
+        #embedded_sequences_2 = embedding_layer(sequence_2_input)
+
         #x2 = lstm_layer(embedded_sequences_2)
 
         # Attention layer
         attn_layer = AttentionLayer(name='attention_layer')
-        xx, attn_states = attn_layer([embedded_sequences_1, embedded_sequences_2])
-        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([embedded_sequences_2, xx])
+        xx, attn_states = attn_layer([sequence_1_input, sequence_2_input])
+        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([sequence_2_input, xx])
 
         xxx = lstm_layer(decoder_concat_input)
+
+        '''
+        # Attention layer
+        attn_layer2 = AttentionLayer(name='attention_layer2')
+        xx2, attn_states2 = attn_layer([embedded_sequences_1, embedded_sequences_2])
+        decoder_concat_input2 = Concatenate(axis=-1, name='concat_layer2')([embedded_sequences_1, xx2])
+
+        xxx2 = lstm_layer(decoder_concat_input2)
+        '''
 
         # Creating leaks input
         leaks_input = Input(shape=(leaks_train.shape[1],))
@@ -91,18 +107,18 @@ class SiameseBiLSTM:
 
         # Merging two LSTM encodes vectors from sentences to
         # pass it to dense layer applying dropout and batch normalisation
-        merged = concatenate([xxx, leaks_dense])
-        merged = BatchNormalization()(merged)
+        #merged = concatenate([xxx, leaks_dense])
+        merged = BatchNormalization()(xxx)
         merged = Dropout(self.rate_drop_dense)(merged)
         merged = Dense(self.number_dense_units, activation=self.activation_function)(merged)
         merged = BatchNormalization()(merged)
         merged = Dropout(self.rate_drop_dense)(merged)
         preds = Dense(1, activation='sigmoid')(merged)
 
-        model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=preds)
+        model = Model(inputs=[sequence_1_input, sequence_2_input], outputs=preds)
         model.compile(loss='binary_crossentropy', optimizer='nadam', metrics=['acc'])
 
-        early_stopping = EarlyStopping(monitor='val_loss', patience=3)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=5)
 
         checkpoint_dir = model_save_directory
 
@@ -115,9 +131,9 @@ class SiameseBiLSTM:
 
         tensorboard = TensorBoard(log_dir=checkpoint_dir + "logs/{}".format(time.time()))
 
-        model.fit([train_data_x1, train_data_x2, leaks_train], train_labels,
-                  validation_data=([val_data_x1, val_data_x2, leaks_val], val_labels),
-                  epochs=25, batch_size=64, shuffle=True,
+        model.fit([train_data_x1, train_data_x2], train_labels,
+                  validation_data=([val_data_x1, val_data_x2], val_labels),
+                  epochs=25, batch_size=40, shuffle=True,
                   callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=1)
 
         return bst_model_path

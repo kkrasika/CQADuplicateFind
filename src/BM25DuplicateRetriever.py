@@ -3,16 +3,17 @@ import pandas as pd
 import gc
 from DataSetUtil import get_df_from_csv_file, review_to_wordlist
 from SiameseLSTMClassifier import get_doc2vec_vectors_train_valid_split, train_model, evaluate_model
-from keras.models import load_model
+from tensorflow.python.keras.models import load_model
 from inputHandler import create_test_data
 from config import siamese_config
 from operator import itemgetter
 from DataSetUtil import strip_tags
+from layers.attention import AttentionLayer
 
 def main():
     numberOfRelevantQs = 10
     #fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
-    fileNameList = ['stats', 'tex', 'unix', 'webmasters', 'wordpress']
+    fileNameList = ['gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
     #fileNameList = ['webmasters']
 
     for a in range(len(fileNameList)):
@@ -23,8 +24,10 @@ def main():
 
         df_for_file = get_df_from_csv_file(fileName)
         train_x, train_y, valid_x, valid_y, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
-        model_path = train_model(train_x, train_y, embedding_meta_data, fileName)
-        siamese_lstm_model = load_model(model_path)
+        #model_path = train_model(train_x, train_y, embedding_meta_data, fileName)
+        #siamese_lstm_model = load_model(model_path)
+        model_path = '../data/model/siamese-lstm/'+ fileName+'-'+siamese_config['MODEL_FILE_NAME']
+        siamese_lstm_model = load_model(model_path, custom_objects={'AttentionLayer': AttentionLayer})
         preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
         print('Classification Accuracy for : ' + fileName + ' Siamese LSTM ' + str(str(accuracy[1])), file=outputFile)
         tokenizer = embedding_meta_data['tokenizer']
@@ -79,9 +82,9 @@ def main():
 
                 foundDups = 0
                 apForQuery = 0.0
-                #print("Query : " + test_query)
-                #print("Annotated Dups : " + str(dupids))
-                #print('Results : ')
+                print("Query : " + test_query)
+                print("Annotated Dups : " + str(dupids))
+                print('Results : ')
                 for j in range(0, numberOfRelevantQs):
                     similarDocId = results[j][0]
                     #similarDocId = candidate_docs_bm25[j][0]
@@ -89,7 +92,7 @@ def main():
                     if(similarDocId in dupids):
                         foundDups += 1
                         apForQuery += foundDups/(j+1)
-                        #print('-------------- Hit !!!-----------------@'+ str(j))
+                        print('-------------- Hit !!!-----------------@'+ str(j))
 
                 if(foundDups>0):
                     sumOfAveragePrecision = sumOfAveragePrecision + (apForQuery/len(dupids))

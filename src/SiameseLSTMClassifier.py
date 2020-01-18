@@ -5,8 +5,9 @@ from tensorflow.python.keras.models import load_model
 import numpy as np
 from sklearn import preprocessing
 from layers.attention import AttentionLayer
+import gc
 
-from DataSetUtil import get_doc2vec_model_for_csv_file, get_df_from_csv_files_combined, get_train_test_split_of_dataframe, get_df_from_csv_file
+from DataSetUtil import get_doc2vec_model_for_csv_file, get_df_from_csv_files_combined, get_train_test_split_of_dataframe, get_df_from_csv_file, get_limited_df_from_csv_file
 
 def evaluate_model(model, valid_x, valid_y):
 
@@ -74,9 +75,16 @@ def get_doc2vec_vectors_train_valid_split(trainingData):
 
     test_data_x1, test_data_x2, leaks_test = create_test_data(tokenizer, sentences_pairs_validate,
                                                               siamese_config['MAX_SEQUENCE_LENGTH'])
-    test_data_x = [test_data_x1, test_data_x2, leaks_test]
+    test_data_x = [test_data_x1, test_data_x2]
 
     return sentences_pairs, is_similar, test_data_x, is_similar_validate, embedding_meta_data
+
+def f(x):
+    return {
+        'android' : 2400, 'english' : 2400, 'gaming' : 2400, 'gis' : 2400, 'mathematica' : 2400,
+        'physics' : 2400, 'programmers' : 2400, 'stats' : 2400, 'tex' : 2400, 'unix' : 2400,
+        'webmasters' : 2400 #, 'wordpress' : 2000,
+    }[x]
 
 def main():
 
@@ -87,23 +95,37 @@ def main():
 
     # Split / Model / Evaluate for each data set and for combined.
     # For each file
+
+
+
     for fileName in fileNameList:
         outputFile = open('../data/output/result.txt', 'a')
-        df_for_file = get_df_from_csv_file(fileName)
+        df_for_file = get_limited_df_from_csv_file(fileName, f(fileName))
         train_x, train_y, valid_x, valid_y, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
         model_path = train_model(train_x, train_y, embedding_meta_data, fileName)
+        #model_path = '../data/model/siamese-lstm/' + 'full' + '-' + siamese_config['MODEL_FILE_NAME']
         siamese_lstm_model = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer})
         preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
+        print('Embedding matrix shape : ' + fileName + str(embedding_meta_data['embedding_matrix'].shape), file=outputFile)
         print('Accuracy for : '+fileName+' Siamese LSTM ' + str(str(accuracy[1])), file=outputFile)
+
+        del df_for_file
+        del train_x, train_y, valid_x, valid_y, embedding_meta_data
+        del model_path
+        del siamese_lstm_model
+        del preds, accuracy
+        gc.collect()
         outputFile.close()
 
     # For combined file
     df_combined = get_df_from_csv_files_combined(fileNameList)
     train_x, train_y, valid_x, valid_y,embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_combined)
-    model_path = train_model(train_x, train_y, embedding_meta_data, 'full')
-    siamese_lstm_model = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer})
-    preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
-    print('Accuracy for : ' + 'full' + ' Siamese LSTM ' + str(accuracy[1]))
+    print('Embedding matrix shape : ' + ' full ' + str(embedding_meta_data['embedding_matrix'].shape), file=outputFile)
+    #model_path = train_model(train_x, train_y, embedding_meta_data, 'full')
+    #model_path = '../data/model/siamese-lstm/' + 'full        tokenizer, embedding_matrix = embedding_meta_data' + '-' + siamese_config['MODEL_FILE_NAME']
+    #siamese_lstm_model = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer})
+    #preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
+    #print('Accuracy for : ' + 'full' + ' Siamese LSTM ' + str(accuracy[1]))
 
 if __name__ == '__main__':
     main()

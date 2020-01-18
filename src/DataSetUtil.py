@@ -10,7 +10,13 @@ def get_df_from_csv_file(fileName):
     print("----- Data frame for domain : " + str(fileName) + ' -----')
     trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
     trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup']]
-    #trainingData = trainingData[:4500]
+    return trainingData
+
+def get_limited_df_from_csv_file(fileName, limit):
+    print("----- Data frame for domain : " + str(fileName) + ' -----')
+    trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
+    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup']]
+    trainingData = trainingData[:limit]
     return trainingData
 
 def get_doc2vec_model_for_csv_file(fileName):
@@ -23,10 +29,10 @@ def get_doc2vec_model_for_csv_file(fileName):
 
 def get_df_from_csv_files_combined(fileNames):
     print("----- Data frame for combined data : " + str(fileNames)+' -----')
-    trainingData = get_df_from_csv_file(fileNames[0])
+    trainingData = get_limited_df_from_csv_file(fileNames[0],1600)
     i=1
     while i < len(fileNames):
-        trainingData = trainingData.append(get_df_from_csv_file(fileNames[i]))
+        trainingData = trainingData.append(get_limited_df_from_csv_file(fileNames[i],1600))
         i += 1
     return trainingData
 
