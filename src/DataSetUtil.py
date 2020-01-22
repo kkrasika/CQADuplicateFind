@@ -9,8 +9,8 @@ from html.parser import HTMLParser
 def get_df_from_csv_file(fileName):
     print("----- Data frame for domain : " + str(fileName) + ' -----')
     trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
-    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup']]
-    #trainingData = trainingData[:4500]
+    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup', 'DomainId']]
+    trainingData = trainingData[:4800]
     return trainingData
 
 def get_doc2vec_model_for_csv_file(fileName):
@@ -38,7 +38,7 @@ def get_train_test_split_of_dataframe(dataFrame, withQid):
     print('Dup count :' + str(len(dupYDf.index)))
 
     x = dataFrame[['Q1', 'Q2']]
-    y = dataFrame['Dup']
+    y = dataFrame[['Dup', 'DomainId']]
 
     if withQid:
         x = dataFrame[['Q1','Q1ID', 'Q2','Q2ID']]

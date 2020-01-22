@@ -13,10 +13,15 @@ from config import siamese_config
 import time
 import gc
 import os
+from tensorflow.python.keras.engine import Layer
 
 from inputHandler import create_train_dev_set
 from layers.attention import AttentionLayer
-
+from keras.layers.wrappers import TimeDistributed
+import tensorflow.python.keras.backend as K
+from tensorflow.python.framework import ops
+import tensorflow as tf
+from math import exp
 
 
 class SiameseBiLSTM:
@@ -30,8 +35,9 @@ class SiameseBiLSTM:
         self.activation_function = hidden_activation
         self.rate_drop_dense = rate_drop_dense
         self.validation_split_ratio = validation_split_ratio
+        self.lambda_reversal = 0.25
 
-    def train_model(self, sentences_pair, is_similar, embedding_meta_data, filename, model_save_directory='./'):
+    def train_model(self, sentences_pair, is_similar, train_domain, embedding_meta_data, filename, model_save_directory='./'):
         """
         Train Siamese network to find similarity between sentences in `sentences_pair`
             Steps Involved:
@@ -50,9 +56,9 @@ class SiameseBiLSTM:
         """
         tokenizer, embedding_matrix = embedding_meta_data['tokenizer'], embedding_meta_data['embedding_matrix']
 
-        train_data_x1, train_data_x2, train_labels, leaks_train, \
-        val_data_x1, val_data_x2, val_labels, leaks_val = create_train_dev_set(tokenizer, sentences_pair,
-                                                                               is_similar, self.max_sequence_length,
+        train_data_x1, train_data_x2, train_labels, domains_train, leaks_train, \
+        val_data_x1, val_data_x2, val_labels, domains_val, leaks_val = create_train_dev_set(tokenizer, sentences_pair,
+                                                                               is_similar, train_domain, self.max_sequence_length,
                                                                                self.validation_split_ratio)
 
         if train_data_x1 is None:
@@ -97,12 +103,22 @@ class SiameseBiLSTM:
         merged = Dense(self.number_dense_units, activation=self.activation_function)(merged)
         merged = BatchNormalization()(merged)
         merged = Dropout(self.rate_drop_dense)(merged)
-        preds = Dense(1, activation='sigmoid')(merged)
 
-        model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=preds)
-        model.compile(loss='binary_crossentropy', optimizer='nadam', metrics=['acc'])
+        preds = Dense(1, activation='sigmoid', name='duplicate_classifier')(merged)
 
-        early_stopping = EarlyStopping(monitor='val_loss', patience=3)
+        # Domain Adaptation section - classify the domain
+        flip_layer = GradientReversal(self.lambda_reversal)
+        dann_in = flip_layer(merged)
+        dann_out = Dense(12, activation='softmax', name='domain_classifier')(dann_in)
+
+        model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=[preds, dann_out])
+
+        # model.compile(loss='binary_crossentropy', optimizer='nadam', metrics=['acc'])
+        model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'], loss_weights={'duplicate_classifier': 1, 'domain_classifier': -1})
+        #model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'])
+
+        # early_stopping = EarlyStopping(monitor='val_loss', patience=50)
+        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=3)
 
         checkpoint_dir = model_save_directory
 
@@ -115,9 +131,11 @@ class SiameseBiLSTM:
 
         tensorboard = TensorBoard(log_dir=checkpoint_dir + "logs/{}".format(time.time()))
 
-        model.fit([train_data_x1, train_data_x2, leaks_train], train_labels,
-                  validation_data=([val_data_x1, val_data_x2, leaks_val], val_labels),
-                  epochs=25, batch_size=64, shuffle=True,
+        print(model.summary())
+
+        model.fit([train_data_x1, train_data_x2, leaks_train], [train_labels, domains_train],
+                  validation_data=([val_data_x1, val_data_x2, leaks_val], [val_labels, domains_val]),
+                  epochs=100, batch_size=100, shuffle=True,
                   callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=1)
 
         return bst_model_path
@@ -163,3 +181,44 @@ class SiameseBiLSTM:
                   callbacks=[early_stopping, model_checkpoint, tensorboard])
 
         return new_model_path
+
+def reverse_gradient(X, hp_lambda):
+    '''Flips the sign of the incoming gradient during training.'''
+    try:
+        reverse_gradient.num_calls += 1
+    except AttributeError:
+        reverse_gradient.num_calls = 1
+
+    grad_name = "GradientReversal%d" % reverse_gradient.num_calls
+
+    @tf.RegisterGradient(grad_name)
+    def _flip_gradients(op, grad):
+        return [tf.negative(grad) * hp_lambda]
+
+    g = K.get_session().graph
+    with g.gradient_override_map({'Identity': grad_name}):
+        y = tf.identity(X)
+
+    return y
+
+class GradientReversal(Layer):
+    '''Flip the sign of gradient during training.'''
+    def __init__(self, hp_lambda, **kwargs):
+        super(GradientReversal, self).__init__(**kwargs)
+        self.supports_masking = False
+        self.hp_lambda = hp_lambda
+
+    def build(self, input_shape):
+        self._trainable_weights = []
+
+    def call(self, x, mask=None):
+        return reverse_gradient(x, self.hp_lambda)
+
+    def get_output_shape_for(self, input_shape):
+        return input_shape
+
+    def get_config(self):
+        config = {'hp_lambda': self.hp_lambda}
+        base_config = super(GradientReversal, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+

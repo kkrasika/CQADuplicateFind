@@ -77,12 +77,26 @@ def review_to_wordlist(review, remove_stopwords=True):
 
     return review_text
 
-def prepareDataSet(df, non_dup_rows, dup_rows):
+def f(x):
+    return {
+        'android' : 1, 'english' : 2, 'gaming' : 3, 'gis' : 4, 'mathematica' : 5,
+        'physics' : 6, 'programmers' : 7, 'stats' : 8, 'tex' : 9, 'unix' : 10,
+        'webmasters' : 11 , 'wordpress' : 12
+    }[x]
+
+def prepareDataSet(df, non_dup_rows, dup_rows, domain_id):
 
     dupCount = 0
     nonDupCount = 0
     maxNonDupCountPerQuestion = 2 #(math.floor(100/duplicatePercentage))-1
-    recordCount = len(dup_rows) * 3
+    recordCount = 4800 #len(dup_rows) * 3
+    if (domain_id == 12):
+        recordCount = 1200
+    elif (domain_id == 4 or domain_id == 8 or domain_id == 11):
+        recordCount = 2400
+    elif (domain_id == 1 or domain_id == 5 or domain_id == 7):
+        recordCount = 3600
+
     nonDupSize = len(non_dup_rows)
 
     result = []
@@ -98,7 +112,7 @@ def prepareDataSet(df, non_dup_rows, dup_rows):
         q2Title = review_to_wordlist(dups.iloc[0].loc['title'])
         q2Body = review_to_wordlist(strip_tags(dups.iloc[0].loc['body']))
         q2Id = str(dups.iloc[0].loc['QuestionID'])
-        result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Dup': 1})
+        result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Dup': 1, 'DomainId':domain_id})
         #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title , 'Dup': 1})
         dupCount += 1
 
@@ -109,7 +123,7 @@ def prepareDataSet(df, non_dup_rows, dup_rows):
             q2Title = review_to_wordlist(nonDupRow.loc['title'])
             q2Body = review_to_wordlist(strip_tags(nonDupRow.loc['body']))
             q2Id = str(nonDupRow.loc['QuestionID'])
-            result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Dup': 0})
+            result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Dup': 0, 'DomainId':domain_id})
             # result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title, 'Dup': 0})
             nonDupCountPerQuestion += 1
             nonDupCount += 1
@@ -124,7 +138,7 @@ def prepareDataSet(df, non_dup_rows, dup_rows):
                 q2Title = review_to_wordlist(nonDupRowFromEnd.loc['title'])
                 q2Body = review_to_wordlist(strip_tags(nonDupRowFromEnd.loc['body']))
                 q2Id  = str(nonDupRowFromEnd.loc['QuestionID'])
-                result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body,'Q2ID': q2Id,  'Q2': q2Title+" "+q2Body, 'Dup': 0})
+                result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body,'Q2ID': q2Id,  'Q2': q2Title+" "+q2Body, 'Dup': 0, 'DomainId':domain_id})
                 #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title, 'Dup': 0})
                 nonDupCountPerQuestion += 1
                 nonDupCount += 1
@@ -151,9 +165,9 @@ def create_csv_for_file(filename):
         else:
             non_dup_rows.append(df.iloc[i])
 
-    trainingRecords = prepareDataSet(df, non_dup_rows, dup_rows)
+    trainingRecords = prepareDataSet(df, non_dup_rows, dup_rows, f(filename))
 
-    trainDf = pd.DataFrame(columns=['Q1', 'Q2', 'Dup'])
+    trainDf = pd.DataFrame(columns=['Q1', 'Q2', 'Dup', 'DomainId'])
 
     trainDf = trainDf.append(trainingRecords, ignore_index=True, sort=True)
 
@@ -166,8 +180,9 @@ def create_csv_for_files(fileNames):
         create_csv_for_file(fileName)
 
 def main():
-    fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
-    #fileNameList = ['webmasters']
+    #fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
+    #fileNameList = ['android', 'english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters']
+    fileNameList = ['wordpress']
     create_csv_for_files(fileNameList)
 
 if __name__ == '__main__':
