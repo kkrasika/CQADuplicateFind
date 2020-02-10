@@ -72,32 +72,45 @@ class SiameseBiLSTM:
                                     input_length=self.max_sequence_length, trainable=False)
 
         # Creating LSTM Encoder
-        lstm_layer = Bidirectional(LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm))
+        lstm_layer_encode = Bidirectional(LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm, return_sequences=True))
 
         # Creating LSTM Encoder layer for First Sentence
         sequence_1_input = Input(shape=(self.max_sequence_length,), dtype='int32')
         embedded_sequences_1 = embedding_layer(sequence_1_input)
-        #x1 = lstm_layer(embedded_sequences_1)
+        x1_out = lstm_layer_encode(embedded_sequences_1)
+
+        # Creating LSTM Dncoder
+        lstm_layer_decode = Bidirectional(LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm, return_sequences=True))
 
         # Creating LSTM Encoder layer for Second Sentence
         sequence_2_input = Input(shape=(self.max_sequence_length,), dtype='int32')
         embedded_sequences_2 = embedding_layer(sequence_2_input)
-        #x2 = lstm_layer(embedded_sequences_2)
+        x2_out = lstm_layer_decode(embedded_sequences_2)
 
         # Attention layer
         attn_layer = AttentionLayer(name='attention_layer')
-        xx, attn_states = attn_layer([embedded_sequences_1, embedded_sequences_2])
-        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([embedded_sequences_2, xx])
+        attn_out, attn_states = attn_layer([x1_out, x2_out])
 
-        xxx = lstm_layer(decoder_concat_input)
+        # Concat attention input and decoder LSTM output
+        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([x2_out, attn_out])
+
+        # Creating LSTM Dncoder
+        lstm_layer_final = Bidirectional(LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm))
+        lstm_out = lstm_layer_final(decoder_concat_input)
+
+        # Domain Adaptation section - classify the domain
+        flip_layer = GradientReversal(self.lambda_reversal)
+        dann_in = flip_layer(lstm_out)
+        dnn_out = Dense(11, activation='softmax', name='domain_classifier')(dann_in)
 
         # Creating leaks input
         leaks_input = Input(shape=(leaks_train.shape[1],))
+        #leaks_embeddings = embedding_layer(leaks_input)
         leaks_dense = Dense(int(self.number_dense_units/2), activation=self.activation_function)(leaks_input)
 
         # Merging two LSTM encodes vectors from sentences to
         # pass it to dense layer applying dropout and batch normalisation
-        merged = concatenate([xxx, leaks_dense])
+        merged = concatenate([lstm_out, leaks_dense], axis=1)
         merged = BatchNormalization()(merged)
         merged = Dropout(self.rate_drop_dense)(merged)
         merged = Dense(self.number_dense_units, activation=self.activation_function)(merged)
@@ -106,19 +119,14 @@ class SiameseBiLSTM:
 
         preds = Dense(1, activation='sigmoid', name='duplicate_classifier')(merged)
 
-        # Domain Adaptation section - classify the domain
-        flip_layer = GradientReversal(self.lambda_reversal)
-        dann_in = flip_layer(merged)
-        dann_out = Dense(12, activation='softmax', name='domain_classifier')(dann_in)
-
-        model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=[preds, dann_out])
+        model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=[preds, dnn_out])
 
         # model.compile(loss='binary_crossentropy', optimizer='nadam', metrics=['acc'])
-        model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'], loss_weights={'duplicate_classifier': 1, 'domain_classifier': -1})
+        model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'], loss_weights={'duplicate_classifier': 1, 'domain_classifier': 1})
         #model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'])
 
         # early_stopping = EarlyStopping(monitor='val_loss', patience=50)
-        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=3)
+        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=5)
 
         checkpoint_dir = model_save_directory
 
@@ -135,7 +143,7 @@ class SiameseBiLSTM:
 
         model.fit([train_data_x1, train_data_x2, leaks_train], [train_labels, domains_train],
                   validation_data=([val_data_x1, val_data_x2, leaks_val], [val_labels, domains_val]),
-                  epochs=100, batch_size=100, shuffle=True,
+                  epochs=50, batch_size=100, shuffle=True,
                   callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=1)
 
         return bst_model_path

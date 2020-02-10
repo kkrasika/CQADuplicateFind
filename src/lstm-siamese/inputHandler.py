@@ -12,7 +12,7 @@ def train_word2vec(documents, embedding_dim):
     train word2vector over traning documents
     Args:
         documents (list): list of document
-        embedding_dim (int): outpu wordvector size
+        embedding_dim (int): outpu wordvector sizeN
     Returns:
         word_vectors(dict): dict containing words and their respective vectors
     """

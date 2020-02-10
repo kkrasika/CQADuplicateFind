@@ -13,6 +13,12 @@ def get_df_from_csv_file(fileName):
     trainingData = trainingData[:4800]
     return trainingData
 
+def get_part_df_from_csv_file(fileName, fromid, toid):
+    trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
+    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup', 'DomainId']]
+    trainingData = trainingData[fromid:toid]
+    return trainingData
+
 def get_doc2vec_model_for_csv_file(fileName):
     try:
         doc2vec_model = Doc2Vec.load('../data/model/doc2vec/int-labeled/' + str(fileName) + "-d2v.model")
@@ -28,6 +34,25 @@ def get_df_from_csv_files_combined(fileNames):
     while i < len(fileNames):
         trainingData = trainingData.append(get_df_from_csv_file(fileNames[i]))
         i += 1
+    return trainingData
+
+def get_shuffeled_df_from_csv_files_combined(fileNames, max, batch_size):
+    iterations = max/batch_size
+    print("----- Data frame for shuffeled combined data : " + str(fileNames)+' -----')
+    x=0
+    trainingData = None
+    while x < iterations:
+        from_id = x*batch_size
+        to_id = (x+1)*batch_size - 1
+        i=0
+        while i < len(fileNames):
+            if trainingData is None:
+                trainingData = get_part_df_from_csv_file(fileNames[i], from_id, to_id)
+            else:
+                trainingData = trainingData.append(get_part_df_from_csv_file(fileNames[i], from_id, to_id))
+            i += 1
+        print("----- Iteration : " + str(x) + ' completed. Size of frame '+str(trainingData.size))
+        x += 1
     return trainingData
 
 # returns train_x, valid_x, train_y, valid_y
