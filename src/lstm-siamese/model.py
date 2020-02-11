@@ -37,6 +37,70 @@ class SiameseBiLSTM:
         self.validation_split_ratio = validation_split_ratio
         self.lambda_reversal = 0.25
 
+    def construct_model(self, tokenizer, embedding_matrix):
+        nb_words = len(tokenizer.word_index) + 1
+
+        # Creating word embedding layer
+        embedding_layer = Embedding(nb_words, self.embedding_dim, weights=[embedding_matrix],
+                                    input_length=self.max_sequence_length, trainable=False)
+
+        # Creating LSTM Encoder
+        lstm_layer_encode = Bidirectional(
+            LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm,
+                 return_sequences=True))
+
+        # Creating LSTM Encoder layer for First Sentence
+        sequence_1_input = Input(shape=(self.max_sequence_length,), dtype='int32')
+        embedded_sequences_1 = embedding_layer(sequence_1_input)
+        x1_out = lstm_layer_encode(embedded_sequences_1)
+
+        # Creating LSTM Dncoder
+        lstm_layer_decode = Bidirectional(
+            LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm,
+                 return_sequences=True))
+
+        # Creating LSTM Encoder layer for Second Sentence
+        sequence_2_input = Input(shape=(self.max_sequence_length,), dtype='int32')
+        embedded_sequences_2 = embedding_layer(sequence_2_input)
+        x2_out = lstm_layer_decode(embedded_sequences_2)
+
+        # Attention layer
+        attn_layer = AttentionLayer(name='attention_layer')
+        attn_out, attn_states = attn_layer([x1_out, x2_out])
+
+        # Concat attention input and decoder LSTM output
+        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([x2_out, attn_out])
+
+        # Creating LSTM Dncoder
+        lstm_layer_final = Bidirectional(
+            LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm))
+        lstm_out = lstm_layer_final(decoder_concat_input)
+
+        # Creating leaks input
+        leaks_input = Input(shape=(3,))
+        # leaks_embeddings = embedding_layer(leaks_input)
+        leaks_dense = Dense(int(self.number_dense_units / 2), activation=self.activation_function)(leaks_input)
+
+        # Merging two LSTM encodes vectors from sentences to
+        # pass it to dense layer applying dropout and batch normalisation
+        merged = concatenate([lstm_out, leaks_dense], axis=1)
+        merged = BatchNormalization()(merged)
+        merged = Dropout(self.rate_drop_dense)(merged)
+        merged = Dense(self.number_dense_units, activation=self.activation_function)(merged)
+        merged = BatchNormalization()(merged)
+        merged = Dropout(self.rate_drop_dense)(merged)
+
+        preds = Dense(1, activation='sigmoid', name='duplicate_classifier')(merged)
+
+        # Domain Adaptation section - classify the domain
+        flip_layer = GradientReversal(self.lambda_reversal)
+        dann_in = flip_layer(merged)
+        dnn_out = Dense(11, activation='softmax', name='domain_classifier')(dann_in)
+
+        model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=[preds, dnn_out])
+
+        return model
+
     def train_model(self, sentences_pair, is_similar, train_domain, embedding_meta_data, filename, model_save_directory='./'):
         """
         Train Siamese network to find similarity between sentences in `sentences_pair`
@@ -65,61 +129,7 @@ class SiameseBiLSTM:
             print("++++ !! Failure: Unable to train model ++++")
             return None
 
-        nb_words = len(tokenizer.word_index) + 1
-
-        # Creating word embedding layer
-        embedding_layer = Embedding(nb_words, self.embedding_dim, weights=[embedding_matrix],
-                                    input_length=self.max_sequence_length, trainable=False)
-
-        # Creating LSTM Encoder
-        lstm_layer_encode = Bidirectional(LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm, return_sequences=True))
-
-        # Creating LSTM Encoder layer for First Sentence
-        sequence_1_input = Input(shape=(self.max_sequence_length,), dtype='int32')
-        embedded_sequences_1 = embedding_layer(sequence_1_input)
-        x1_out = lstm_layer_encode(embedded_sequences_1)
-
-        # Creating LSTM Dncoder
-        lstm_layer_decode = Bidirectional(LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm, return_sequences=True))
-
-        # Creating LSTM Encoder layer for Second Sentence
-        sequence_2_input = Input(shape=(self.max_sequence_length,), dtype='int32')
-        embedded_sequences_2 = embedding_layer(sequence_2_input)
-        x2_out = lstm_layer_decode(embedded_sequences_2)
-
-        # Attention layer
-        attn_layer = AttentionLayer(name='attention_layer')
-        attn_out, attn_states = attn_layer([x1_out, x2_out])
-
-        # Concat attention input and decoder LSTM output
-        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([x2_out, attn_out])
-
-        # Creating LSTM Dncoder
-        lstm_layer_final = Bidirectional(LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm))
-        lstm_out = lstm_layer_final(decoder_concat_input)
-
-        # Creating leaks input
-        leaks_input = Input(shape=(leaks_train.shape[1],))
-        #leaks_embeddings = embedding_layer(leaks_input)
-        leaks_dense = Dense(int(self.number_dense_units/2), activation=self.activation_function)(leaks_input)
-
-        # Merging two LSTM encodes vectors from sentences to
-        # pass it to dense layer applying dropout and batch normalisation
-        merged = concatenate([lstm_out, leaks_dense], axis=1)
-        merged = BatchNormalization()(merged)
-        merged = Dropout(self.rate_drop_dense)(merged)
-        merged = Dense(self.number_dense_units, activation=self.activation_function)(merged)
-        merged = BatchNormalization()(merged)
-        merged = Dropout(self.rate_drop_dense)(merged)
-
-        preds = Dense(1, activation='sigmoid', name='duplicate_classifier')(merged)
-
-        # Domain Adaptation section - classify the domain
-        flip_layer = GradientReversal(self.lambda_reversal)
-        dann_in = flip_layer(merged)
-        dnn_out = Dense(11, activation='softmax', name='domain_classifier')(dann_in)
-
-        model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=[preds, dnn_out])
+        model = self.construct_model(tokenizer, embedding_matrix)
 
         # model.compile(loss='binary_crossentropy', optimizer='nadam', metrics=['acc'])
         model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'], loss_weights={'duplicate_classifier': 1, 'domain_classifier': 1})
