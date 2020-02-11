@@ -98,11 +98,6 @@ class SiameseBiLSTM:
         lstm_layer_final = Bidirectional(LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm))
         lstm_out = lstm_layer_final(decoder_concat_input)
 
-        # Domain Adaptation section - classify the domain
-        flip_layer = GradientReversal(self.lambda_reversal)
-        dann_in = flip_layer(lstm_out)
-        dnn_out = Dense(11, activation='softmax', name='domain_classifier')(dann_in)
-
         # Creating leaks input
         leaks_input = Input(shape=(leaks_train.shape[1],))
         #leaks_embeddings = embedding_layer(leaks_input)
@@ -118,6 +113,11 @@ class SiameseBiLSTM:
         merged = Dropout(self.rate_drop_dense)(merged)
 
         preds = Dense(1, activation='sigmoid', name='duplicate_classifier')(merged)
+
+        # Domain Adaptation section - classify the domain
+        flip_layer = GradientReversal(self.lambda_reversal)
+        dann_in = flip_layer(merged)
+        dnn_out = Dense(11, activation='softmax', name='domain_classifier')(dann_in)
 
         model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=[preds, dnn_out])
 
@@ -185,7 +185,7 @@ class SiameseBiLSTM:
 
         model.fit([train_data_x1, train_data_x2, leaks_train], train_labels,
                   validation_data=([val_data_x1, val_data_x2, leaks_val], val_labels),
-                  epochs=50, batch_size=3, shuffle=True,
+                  epochs=100, batch_size=3, shuffle=True,
                   callbacks=[early_stopping, model_checkpoint, tensorboard])
 
         return new_model_path
