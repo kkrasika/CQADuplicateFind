@@ -89,13 +89,17 @@ def prepareDataSet(df, non_dup_rows, dup_rows, domain_id):
     dupCount = 0
     nonDupCount = 0
     maxNonDupCountPerQuestion = 2 #(math.floor(100/duplicatePercentage))-1
-    recordCount = 4800 #len(dup_rows) * 3
+    recordCount = len(dup_rows) * 3
+
+    '''
+    recordCount = 4800 
     if (domain_id == 12):
         recordCount = 1200
     elif (domain_id == 4 or domain_id == 8 or domain_id == 11):
         recordCount = 2400
     elif (domain_id == 1 or domain_id == 5 or domain_id == 7):
         recordCount = 3600
+    '''
 
     nonDupSize = len(non_dup_rows)
 
@@ -180,9 +184,9 @@ def create_csv_for_files(fileNames):
         create_csv_for_file(fileName)
 
 def main():
-    #fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
+    fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
     #fileNameList = ['android', 'english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters']
-    fileNameList = ['wordpress']
+    #fileNameList = ['wordpress']
     create_csv_for_files(fileNameList)
 
 if __name__ == '__main__':

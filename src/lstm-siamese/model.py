@@ -95,7 +95,7 @@ class SiameseBiLSTM:
         # Domain Adaptation section - classify the domain
         flip_layer = GradientReversal(self.lambda_reversal)
         dann_in = flip_layer(merged)
-        dnn_out = Dense(11, activation='softmax', name='domain_classifier')(dann_in)
+        dnn_out = Dense(12, activation='softmax', name='domain_classifier')(dann_in)
 
         model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=[preds, dnn_out])
 

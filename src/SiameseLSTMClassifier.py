@@ -85,19 +85,19 @@ def get_doc2vec_vectors_train_valid_split(trainingData):
 
 def main():
 
-    #fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
+    fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
     #fileNameList = ['english', 'gaming', 'physics', 'tex','unix']
     #fileNameList = ['mathematica']
     #fileNameList = ['physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
     #fileNameList = ['webmasters']
-    fileNameList = ['android', 'english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters']
+    #fileNameList = ['android', 'english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters']
     # Split / Model / Evaluate for each data set and for combined.
 
     # For combined file
     outputFile = open('../data/output/result.txt', 'a')
-    df_combined = get_shuffeled_df_from_csv_files_combined(fileNameList, 2400, 48)
+    df_combined = get_shuffeled_df_from_csv_files_combined(fileNameList, 4800, 48)
     train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_combined)
-    model_path = train_model(train_x, train_y, train_domain_list, embedding_meta_data, 'full-2400-batch-')
+    model_path = train_model(train_x, train_y, train_domain_list, embedding_meta_data, 'full-2400-batch-24-48-bias-records-unit-')
     #model_path = '../data/model/siamese-lstm/' + 'full-4800-'+'-'+siamese_config['MODEL_FILE_NAME']
     siamese_lstm_model_full = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer, 'GradientReversal' :GradientReversal})
     #preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y, valid_domain_list)

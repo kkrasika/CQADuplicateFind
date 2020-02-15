@@ -46,12 +46,13 @@ def get_shuffeled_df_from_csv_files_combined(fileNames, max, batch_size):
         to_id = (x+1)*batch_size - 1
         i=0
         while i < len(fileNames):
-            if trainingData is None:
-                trainingData = get_part_df_from_csv_file(fileNames[i], from_id, to_id)
-            else:
-                trainingData = trainingData.append(get_part_df_from_csv_file(fileNames[i], from_id, to_id))
+            if (x < (num_of_records_for_domain(fileNames[i])/batch_size)):
+                if trainingData is None:
+                    trainingData = get_part_df_from_csv_file(fileNames[i], from_id, to_id)
+                else:
+                    trainingData = trainingData.append(get_part_df_from_csv_file(fileNames[i], from_id, to_id))
             i += 1
-        print("----- Iteration : " + str(x) + ' completed. Size of frame '+str(trainingData.size))
+        print("----- Iteration : " + str(x) + ' completed. Size of frame '+str(trainingData.shape[0]))
         x += 1
     return trainingData
 
@@ -125,4 +126,38 @@ def strip_tags(html):
     s = MLStripper()
     s.feed(html)
     return s.get_data()
+
+def num_of_records_for_domain(x):
+    return {
+        'android': 3600,
+        'english': 4800,
+        'gaming': 4800,
+        'gis': 2400,
+        'mathematica': 3600,
+        'physics': 4800,
+        'programmers': 3600,
+        'stats': 2400,
+        'tex': 4800,
+        'unix': 4800,
+        'webmasters': 2400,
+        'wordpress': 1200
+    }[x]
+
+    '''
+    return {
+        'android' : 3600,
+        'english' : 2400,
+        'gaming' : 2400,
+        'gis' : 2400,
+        'mathematica' : 2400,
+        'physics' : 4800,
+        'programmers' : 2400,
+        'stats' : 2400,
+        'tex' : 2400,
+        'unix' : 2400,
+        'webmasters' : 2400,
+        'wordpress' : 1200
+    }[x]
+    '''
+
 
