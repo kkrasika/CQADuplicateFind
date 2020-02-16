@@ -97,11 +97,11 @@ def main():
     outputFile = open('../data/output/result.txt', 'a')
     df_combined = get_shuffeled_df_from_csv_files_combined(fileNameList, 4800, 48)
     train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_combined)
-    model_path = train_model(train_x, train_y, train_domain_list, embedding_meta_data, 'full-2400-batch-24-48-bias-records-unit-')
-    #model_path = '../data/model/siamese-lstm/' + 'full-4800-'+'-'+siamese_config['MODEL_FILE_NAME']
+    model_path = train_model(train_x, train_y, train_domain_list, embedding_meta_data, 'full-q2_with_answers-')
+    #model_path = '../data/model/siamese-lstm/' + 'full-q2_with_answers-'+'-'+siamese_config['MODEL_FILE_NAME']
     siamese_lstm_model_full = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer, 'GradientReversal' :GradientReversal})
-    #preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y, valid_domain_list)
-    #print('Accuracy for : ' + 'full' + ' Siamese LSTM ' + str(accuracy[3]), file=outputFile)
+    preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y, valid_domain_list)
+    print('Accuracy for : ' + 'full' + ' Siamese LSTM ' + str(accuracy[3]), file=outputFile)
     outputFile.close()
 
     # For each file
