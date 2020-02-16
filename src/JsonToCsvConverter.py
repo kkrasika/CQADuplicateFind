@@ -84,7 +84,7 @@ def f(x):
         'webmasters' : 11 , 'wordpress' : 12
     }[x]
 
-def prepareDataSet(df, non_dup_rows, dup_rows, domain_id):
+def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
 
     dupCount = 0
     nonDupCount = 0
@@ -116,7 +116,8 @@ def prepareDataSet(df, non_dup_rows, dup_rows, domain_id):
         q2Title = review_to_wordlist(dups.iloc[0].loc['title'])
         q2Body = review_to_wordlist(strip_tags(dups.iloc[0].loc['body']))
         q2Id = str(dups.iloc[0].loc['QuestionID'])
-        result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Dup': 1, 'DomainId':domain_id})
+        q2Answer = get_answer_text(dups.iloc[0], answerDF, True)
+        result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body+" "+q2Answer, 'Dup': 1, 'DomainId':domain_id})
         #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title , 'Dup': 1})
         dupCount += 1
 
@@ -151,14 +152,31 @@ def prepareDataSet(df, non_dup_rows, dup_rows, domain_id):
 
     return result
 
+def get_answer_text(question, answerDF, bestOnly):
+
+    answers = question.loc['answers']
+    best_answer = question.loc['acceptedanswer']
+    answerRecords = answerDF.loc[answerDF['AnswerID'].isin(answers)]
+    numberOfAnswersFound = answerRecords['AnswerID'].size
+    answerText = ''
+    for i in range(0, numberOfAnswersFound):
+        answerText = answerText+' '+review_to_wordlist(strip_tags(answerRecords.iloc[i].loc['body']))
+
+    return answerText
+
+
 def create_csv_for_file(filename):
 
     print('Training file generation starts : ' + str(filename))
 
     df = pd.read_json('../data/json/'+filename+'_questions.json', orient='index')
     df['QuestionID'] = df.index
-    df = df[['QuestionID', 'title','body', 'dups']]
+    df = df[['QuestionID', 'title','body', 'dups', 'answers', 'acceptedanswer']]
     size = df['QuestionID'].size
+
+    answerDF = pd.read_json('../data/json/'+filename+'_answers.json', orient='index')
+    answerDF['AnswerID'] = answerDF.index
+    answerDF = answerDF[['AnswerID', 'body']]
 
     dup_rows = []
     non_dup_rows = []
@@ -169,7 +187,7 @@ def create_csv_for_file(filename):
         else:
             non_dup_rows.append(df.iloc[i])
 
-    trainingRecords = prepareDataSet(df, non_dup_rows, dup_rows, f(filename))
+    trainingRecords = prepareDataSet(df, answerDF, non_dup_rows, dup_rows, f(filename))
 
     trainDf = pd.DataFrame(columns=['Q1', 'Q2', 'Dup', 'DomainId'])
 
