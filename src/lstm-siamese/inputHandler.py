@@ -68,7 +68,7 @@ def word_embed_meta_data(documents, embedding_dim):
     return tokenizer, embedding_matrix
 
 
-def create_train_dev_set(tokenizer, sentences_pair, is_similar, train_domains_in, max_sequence_length, validation_split_ratio):
+def create_train_dev_set(tokenizer, sentences_pair, is_similar, max_sequence_length, validation_split_ratio):
     """
     Create training and validation dataset
     Args:
@@ -105,14 +105,12 @@ def create_train_dev_set(tokenizer, sentences_pair, is_similar, train_domains_in
     train_padded_data_1 = pad_sequences(train_sequences_1, maxlen=max_sequence_length)
     train_padded_data_2 = pad_sequences(train_sequences_2, maxlen=max_sequence_length)
     train_labels = np.array(is_similar)
-    train_domains = np.array(train_domains_in)
     leaks = np.array(leaks)
 
     shuffle_indices = np.random.permutation(np.arange(len(train_labels)))
     train_data_1_shuffled = train_padded_data_1[shuffle_indices]
     train_data_2_shuffled = train_padded_data_2[shuffle_indices]
     train_labels_shuffled = train_labels[shuffle_indices]
-    train_domains_shuffled = train_domains[shuffle_indices]
     leaks_shuffled = leaks[shuffle_indices]
 
     dev_idx = max(1, int(len(train_labels_shuffled) * validation_split_ratio))
@@ -124,10 +122,9 @@ def create_train_dev_set(tokenizer, sentences_pair, is_similar, train_domains_in
     train_data_1, val_data_1 = train_data_1_shuffled[:-dev_idx], train_data_1_shuffled[-dev_idx:]
     train_data_2, val_data_2 = train_data_2_shuffled[:-dev_idx], train_data_2_shuffled[-dev_idx:]
     labels_train, labels_val = train_labels_shuffled[:-dev_idx], train_labels_shuffled[-dev_idx:]
-    domains_train, domains_val = train_domains_shuffled[:-dev_idx], train_domains_shuffled[-dev_idx:]
     leaks_train, leaks_val = leaks_shuffled[:-dev_idx], leaks_shuffled[-dev_idx:]
 
-    return train_data_1, train_data_2, labels_train, domains_train, leaks_train, val_data_1, val_data_2, labels_val, domains_val, leaks_val
+    return train_data_1, train_data_2, labels_train, leaks_train, val_data_1, val_data_2, labels_val, leaks_val
 
 
 def create_test_data(tokenizer, test_sentences_pair, max_sequence_length):

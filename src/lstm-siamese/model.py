@@ -92,16 +92,11 @@ class SiameseBiLSTM:
 
         preds = Dense(1, activation='sigmoid', name='duplicate_classifier')(merged)
 
-        # Domain Adaptation section - classify the domain
-        flip_layer = GradientReversal(self.lambda_reversal)
-        dann_in = flip_layer(merged)
-        dnn_out = Dense(12, activation='softmax', name='domain_classifier')(dann_in)
-
-        model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=[preds, dnn_out])
+        model = Model(inputs=[sequence_1_input, sequence_2_input, leaks_input], outputs=[preds])
 
         return model
 
-    def train_model(self, sentences_pair, is_similar, train_domain, embedding_meta_data, filename, model_save_directory='./'):
+    def train_model(self, sentences_pair, is_similar, embedding_meta_data, filename, model_save_directory='./'):
         """
         Train Siamese network to find similarity between sentences in `sentences_pair`
             Steps Involved:
@@ -120,9 +115,9 @@ class SiameseBiLSTM:
         """
         tokenizer, embedding_matrix = embedding_meta_data['tokenizer'], embedding_meta_data['embedding_matrix']
 
-        train_data_x1, train_data_x2, train_labels, domains_train, leaks_train, \
-        val_data_x1, val_data_x2, val_labels, domains_val, leaks_val = create_train_dev_set(tokenizer, sentences_pair,
-                                                                               is_similar, train_domain, self.max_sequence_length,
+        train_data_x1, train_data_x2, train_labels, leaks_train, \
+        val_data_x1, val_data_x2, val_labels, leaks_val = create_train_dev_set(tokenizer, sentences_pair,
+                                                                               is_similar, self.max_sequence_length,
                                                                                self.validation_split_ratio)
 
         if train_data_x1 is None:
@@ -132,11 +127,11 @@ class SiameseBiLSTM:
         model = self.construct_model(tokenizer, embedding_matrix)
 
         # model.compile(loss='binary_crossentropy', optimizer='nadam', metrics=['acc'])
-        model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'], loss_weights={'duplicate_classifier': 1, 'domain_classifier': 1})
+        model.compile(loss={'duplicate_classifier': 'binary_crossentropy'}, optimizer='nadam', metrics=['acc'], loss_weights={'duplicate_classifier': 1})
         #model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'])
 
         # early_stopping = EarlyStopping(monitor='val_loss', patience=50)
-        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=5)
+        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=3)
 
         checkpoint_dir = model_save_directory
 
@@ -151,9 +146,9 @@ class SiameseBiLSTM:
 
         print(model.summary())
 
-        model.fit([train_data_x1, train_data_x2, leaks_train], [train_labels, domains_train],
-                  validation_data=([val_data_x1, val_data_x2, leaks_val], [val_labels, domains_val]),
-                  epochs=50, batch_size=48, shuffle=True,
+        model.fit([train_data_x1, train_data_x2, leaks_train], [train_labels],
+                  validation_data=([val_data_x1, val_data_x2, leaks_val], [val_labels]),
+                  epochs=25, batch_size=48, shuffle=True,
                   callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=1)
 
         return bst_model_path

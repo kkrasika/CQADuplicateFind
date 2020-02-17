@@ -6,17 +6,16 @@ import numpy as np
 from sklearn import preprocessing
 from layers.attention import AttentionLayer
 
-from DataSetUtil import get_doc2vec_model_for_csv_file, get_df_from_csv_files_combined, get_train_test_split_of_dataframe, get_df_from_csv_file, get_shuffeled_df_from_csv_files_combined
-from model import GradientReversal
+from DataSetUtil import num_of_records_for_domain, get_train_test_split_of_dataframe, get_part_df_from_csv_file, get_shuffeled_df_from_csv_files_combined
 
-def evaluate_model(model, valid_x, valid_y, valid_domain_list):
+def evaluate_model(model, valid_x, valid_y):
 
     #preds = list(model.predict(valid_x, verbose=0).ravel())
-    score = model.evaluate(valid_x, [np.array(valid_y), np.array(valid_domain_list)], verbose=0)
+    score = model.evaluate(valid_x, np.array(valid_y), verbose=0)
 
     return '', score
 
-def train_model(train_x, train_y, train_domain, embedding_meta_data, filename):
+def train_model(train_x, train_y, embedding_meta_data, filename):
 
     class Configuration(object):
         """Dump stuff here"""
@@ -36,7 +35,7 @@ def train_model(train_x, train_y, train_domain, embedding_meta_data, filename):
                             CONFIG.number_dense_units, CONFIG.rate_drop_lstm, CONFIG.rate_drop_dense,
                             CONFIG.activation_function, CONFIG.validation_split_ratio)
 
-    best_model_path = siamese.train_model(train_x, train_y, train_domain, embedding_meta_data,filename, model_save_directory='../data/model/siamese-lstm/')
+    best_model_path = siamese.train_model(train_x, train_y, embedding_meta_data,filename, model_save_directory='../data/model/siamese-lstm/')
     return best_model_path
 
 def get_doc2vec_vectors_train_valid_split(trainingData):
@@ -86,39 +85,36 @@ def get_doc2vec_vectors_train_valid_split(trainingData):
 def main():
 
     fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
-    #fileNameList = ['english', 'gaming', 'physics', 'tex','unix']
-    #fileNameList = ['mathematica']
-    #fileNameList = ['physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
     #fileNameList = ['webmasters']
-    #fileNameList = ['android', 'english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters']
+
     # Split / Model / Evaluate for each data set and for combined.
 
     # For combined file
-    outputFile = open('../data/output/result.txt', 'a')
-    df_combined = get_shuffeled_df_from_csv_files_combined(fileNameList, 4800, 48)
-    train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_combined)
-    model_path = train_model(train_x, train_y, train_domain_list, embedding_meta_data, 'full-q2_with_answers-')
-    #model_path = '../data/model/siamese-lstm/' + 'full-q2_with_answers-'+'-'+siamese_config['MODEL_FILE_NAME']
-    siamese_lstm_model_full = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer, 'GradientReversal' :GradientReversal})
-    preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y, valid_domain_list)
-    print('Accuracy for : ' + 'full' + ' Siamese LSTM ' + str(accuracy[3]), file=outputFile)
-    outputFile.close()
+    #outputFile = open('../data/output/result.txt', 'a')
+    #df_combined = get_shuffeled_df_from_csv_files_combined(fileNameList, 4800, 48)
+    #train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_combined)
+    #model_path = train_model(train_x, train_y, embedding_meta_data, 'full-q2answers-no-domain-adapt-')
+    #model_path = '../data/model/siamese-lstm/' + 'full-q2answers-no-domain-adapt-'+'-'+siamese_config['MODEL_FILE_NAME']
+    #siamese_lstm_model_full = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer})
+    # preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y)
+    # print('Accuracy for : ' + 'full' + ' Siamese LSTM ' + str(accuracy[1]), file=outputFile)
+    # outputFile.close()
 
     # For each file
     for fileName in fileNameList:
+
         outputFile = open('../data/output/result.txt', 'a')
-        df_for_file = get_df_from_csv_file(fileName)
+        df_for_file = get_part_df_from_csv_file(fileName, 0, num_of_records_for_domain(fileName))
         train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
 
-        preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y, valid_domain_list)
-        print('Accuracy for : '+fileName+' Siamese LSTM ' + str(str(accuracy[3])), file=outputFile)
+        #preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y)
+        #print('Accuracy [Combined] for : '+fileName+' Siamese LSTM ' + str(str(accuracy[1])), file=outputFile)
 
-        '''
-        model_path_domain = train_model(train_x, train_y, train_domain_list, embedding_meta_data, fileName)
-        siamese_lstm_model_domain = load_model(model_path_domain, custom_objects={'AttentionLayer': AttentionLayer, 'GradientReversal': GradientReversal})
-        preds, accuracy = evaluate_model(siamese_lstm_model_domain, valid_x, valid_y, valid_domain_list)
-        print('Accuracy [Domain] for : ' + fileName + ' Siamese LSTM ' + str(str(accuracy[3])), file=outputFile)
-        '''
+
+        model_path_domain = train_model(train_x, train_y, embedding_meta_data, fileName)
+        siamese_lstm_model_domain = load_model(model_path_domain, custom_objects={'AttentionLayer': AttentionLayer})
+        preds, accuracy = evaluate_model(siamese_lstm_model_domain, valid_x, valid_y)
+        print('Accuracy [Domain] for : ' + fileName + ' Siamese LSTM ' + str(str(accuracy[1])), file=outputFile)
 
         outputFile.close()
 
