@@ -43,7 +43,7 @@ def get_shuffeled_df_from_csv_files_combined(fileNames, max, batch_size):
     trainingData = None
     while x < iterations:
         from_id = x*batch_size
-        to_id = (x+1)*batch_size - 1
+        to_id = (x+1)*batch_size
         i=0
         while i < len(fileNames):
             if (x < (num_of_records_for_domain(fileNames[i])/batch_size)):
