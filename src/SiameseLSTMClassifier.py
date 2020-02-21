@@ -6,7 +6,7 @@ import numpy as np
 from sklearn import preprocessing
 from layers.attention import AttentionLayer
 
-from DataSetUtil import num_of_records_for_domain, get_train_test_split_of_dataframe, get_part_df_from_csv_file, get_shuffeled_df_from_csv_files_combined
+from DataSetUtil import num_of_records_for_domain, get_train_test_split_of_dataframe, get_df_from_csv_file, get_df_from_csv_files_combined
 
 def evaluate_model(model, valid_x, valid_y):
 
@@ -84,40 +84,27 @@ def get_doc2vec_vectors_train_valid_split(trainingData):
 
 def main():
 
-    fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
+    #fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'unix', 'webmasters', 'wordpress', 'tex']
+    fileNameList = ['stats', 'unix', 'webmasters', 'wordpress', 'tex']
     #fileNameList = ['webmasters']
 
-    # Split / Model / Evaluate for each data set and for combined.
-
-    # For combined file
-    #outputFile = open('../data/output/result.txt', 'a')
-    #df_combined = get_shuffeled_df_from_csv_files_combined(fileNameList, 4800, 48)
-    #train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_combined)
-    #model_path = train_model(train_x, train_y, embedding_meta_data, 'full-q2answers-no-domain-adapt-')
-    #model_path = '../data/model/siamese-lstm/' + 'full-q2answers-no-domain-adapt-'+'-'+siamese_config['MODEL_FILE_NAME']
-    #siamese_lstm_model_full = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer})
-    # preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y)
-    # print('Accuracy for : ' + 'full' + ' Siamese LSTM ' + str(accuracy[1]), file=outputFile)
-    # outputFile.close()
-
-    # For each file
     for fileName in fileNameList:
-
         outputFile = open('../data/output/result.txt', 'a')
-        df_for_file = get_part_df_from_csv_file(fileName, 0, num_of_records_for_domain(fileName))
+        df_for_file = get_df_from_csv_file(fileName)
         train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
-
-        #preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y)
-        #print('Accuracy [Combined] for : '+fileName+' Siamese LSTM ' + str(str(accuracy[1])), file=outputFile)
-
-
-        model_path_domain = train_model(train_x, train_y, embedding_meta_data, fileName)
-        siamese_lstm_model_domain = load_model(model_path_domain, custom_objects={'AttentionLayer': AttentionLayer})
-        preds, accuracy = evaluate_model(siamese_lstm_model_domain, valid_x, valid_y)
-        print('Accuracy [Domain] for : ' + fileName + ' Siamese LSTM ' + str(str(accuracy[1])), file=outputFile)
-
+        model_path = train_model(train_x, train_y, embedding_meta_data, fileName)
+        siamese_lstm_model = load_model(model_path, custom_objects={'AttentionLayer': AttentionLayer})
+        preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
+        print('Accuracy for : ' + fileName + ' Siamese LSTM ' + str(str(accuracy[1])), file=outputFile)
         outputFile.close()
 
+        # For combined file
+    df_combined = get_df_from_csv_files_combined(fileNameList)
+    train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_combined)
+    model_path = train_model(train_x, train_y, embedding_meta_data, 'full')
+    siamese_lstm_model = load_model(model_path, custom_objects={'AttentionLayer': AttentionLayer})
+    preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
+    print('Accuracy for : ' + 'full' + ' Siamese LSTM ' + str(accuracy[1]))
 
 if __name__ == '__main__':
     main()
