@@ -10,7 +10,7 @@ def get_df_from_csv_file(fileName):
     print("----- Data frame for domain : " + str(fileName) + ' -----')
     trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
     trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup', 'DomainId']]
-    trainingData = trainingData[:4800]
+
     return trainingData
 
 def get_part_df_from_csv_file(fileName, fromid, toid):

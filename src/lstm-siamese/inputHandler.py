@@ -97,11 +97,6 @@ def create_train_dev_set(tokenizer, sentences_pair, is_similar, train_domains_in
     leaks = [[len(set(x1)), len(set(x2)), len(set(x1).intersection(x2))]
              for x1, x2 in zip(train_sequences_1, train_sequences_2)]
 
-    df = pd.DataFrame.from_records(leaks)
-    df.columns = ['a', 'b','c']
-    df.groupby(['a']).agg(['count'])
-    df.groupby(['b']).agg(['count'])
-
     train_padded_data_1 = pad_sequences(train_sequences_1, maxlen=max_sequence_length)
     train_padded_data_2 = pad_sequences(train_sequences_2, maxlen=max_sequence_length)
     train_labels = np.array(is_similar)
