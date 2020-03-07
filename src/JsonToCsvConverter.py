@@ -117,7 +117,7 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
         q2Body = review_to_wordlist(strip_tags(dups.iloc[0].loc['body']))
         q2Id = str(dups.iloc[0].loc['QuestionID'])
         q2Answer = get_answer_text(dups.iloc[0], answerDF, True)
-        result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body+" "+q2Answer, 'Dup': 1, 'DomainId':domain_id})
+        result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title, 'Dup': 1, 'DomainId':domain_id})
         #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title , 'Dup': 1})
         dupCount += 1
 
@@ -202,9 +202,9 @@ def create_csv_for_files(fileNames):
         create_csv_for_file(fileName)
 
 def main():
-    fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
+    #fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
     #fileNameList = ['android', 'english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters']
-    #fileNameList = ['wordpress']
+    fileNameList = ['webmasters']
     create_csv_for_files(fileNameList)
 
 if __name__ == '__main__':
