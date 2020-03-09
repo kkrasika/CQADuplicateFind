@@ -40,7 +40,7 @@ del trainingData
 del df_data
 gc.collect()
 
-vocabulary = '../data/model/xlnet/xlnet-base-cased-spiece.model'
+vocabulary = '../data/model/xlnet/xlnet-base-cased/xlnet-base-cased-spiece.model'
 
 max_len  = 32
 
