@@ -16,14 +16,15 @@ print('test 01')
 
 trainDfFromCsv = pd.read_csv('../data/csv/' + 'webmasters' + '-training-data.csv', sep=',')
 trainingData = trainDfFromCsv[['Q1', 'Q1ID', 'Q2', 'Q2ID', 'Dup', 'DomainId']]
-#trainingData = trainingData[:1000]
+trainingData = trainingData[:1000]
 columns = ['labels', 'texts']
 df_data = pd.DataFrame(columns=columns)
 
-df_data['texts'] = trainingData['Q1']+' '+trainingData['Q2']
+df_data['texts'] = trainingData['Q1']
+df_data['texts2'] = trainingData['Q2']
 df_data['labels'] = trainingData['Dup']
 
-sentences = df_data.texts.to_list()
+sentences = ((df_data.texts.to_list(),df_data.texts2.to_list()))
 print(sentences[0])
 
 labels = df_data.labels.to_list()
@@ -62,9 +63,11 @@ SEP_ID = tokenizer.encode("<sep>")[0]
 MASK_ID = tokenizer.encode("<mask>")[0]
 EOD_ID = tokenizer.encode("<eod>")[0]
 
-for i, sentence in enumerate(sentences):
+
+
+for i, (sentence1) in enumerate(sentences[0]):
     # Tokenize sentence to token id list
-    tokens_a = tokenizer.encode(sentence)
+    tokens_a = tokenizer.encode(sentence1, text_pair=sentences[1][i])
 
     # Trim the len of text
     if (len(tokens_a) > max_len - 2):
@@ -106,13 +109,6 @@ for i, sentence in enumerate(sentences):
     full_input_masks.append(input_mask)
     full_segment_ids.append(segment_ids)
 
-    if 3 > i:
-        print("No.:%d" % (i))
-        print("sentence: %s" % (sentence))
-        print("input_ids:%s" % (input_ids))
-        print("attention_masks:%s" % (input_mask))
-        print("segment_ids:%s" % (segment_ids))
-        print("\n")
 
 tags = [tag2idx[str(lab)] for lab in labels]
 print(tags[0])
@@ -130,7 +126,7 @@ val_masks = torch.tensor(val_masks)
 tr_segs = torch.tensor(tr_segs)
 val_segs = torch.tensor(val_segs)
 
-batch_num = 16
+batch_num = 8
 
 # Set token embedding, attention embedding, segment embedding
 train_data = TensorDataset(tr_inputs, tr_masks,tr_segs, tr_tags)
