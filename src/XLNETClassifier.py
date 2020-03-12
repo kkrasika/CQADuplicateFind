@@ -70,7 +70,7 @@ for fileName in fileNameList:
     for i, sentence in enumerate(sentences):
         # Tokenize sentence to token id list
         #tokens_a = tokenizer.encode(sentence1, text_pair=str(sentences[1][i]))
-        tokens_a = tokenizer.encode(sentence)
+        tokens_a = tokenizer.encode(str(sentence))
 
         # Trim the len of text
         if (len(tokens_a) > max_len - 2):
