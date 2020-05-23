@@ -3,30 +3,32 @@ import pandas as pd
 import gc
 from DataSetUtil import get_df_from_csv_file, review_to_wordlist
 from SiameseLSTMClassifier import get_doc2vec_vectors_train_valid_split, train_model, evaluate_model
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 from inputHandler import create_test_data
 from config import siamese_config
 from operator import itemgetter
 from DataSetUtil import strip_tags
+from layers.attention import AttentionLayer
+from model import GradientReversal
 
 def main():
     numberOfRelevantQs = 10
     #fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
-    fileNameList = ['stats', 'tex', 'unix', 'webmasters', 'wordpress']
+    fileNameList = ['android','english', 'gaming', 'gis', 'wordpress']
     #fileNameList = ['webmasters']
 
     for a in range(len(fileNameList)):
 
-        outputFile = open('../data/output/result.txt', 'a')
+        outputFile = open('../data/output/result4.txt', 'a')
 
         fileName = str(fileNameList[a])
 
         df_for_file = get_df_from_csv_file(fileName)
-        train_x, train_y, valid_x, valid_y, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
-        model_path = train_model(train_x, train_y, embedding_meta_data, fileName)
-        siamese_lstm_model = load_model(model_path)
-        preds, accuracy = evaluate_model(siamese_lstm_model, valid_x, valid_y)
-        print('Classification Accuracy for : ' + fileName + ' Siamese LSTM ' + str(str(accuracy[1])), file=outputFile)
+        train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
+        #model_path = train_model(train_x, train_y, embedding_meta_data, fileName)
+        #model_path = '../data/model/siamese-lstm/' + 'common-adapted' + '-' + siamese_config['MODEL_FILE_NAME']
+        model_path = '../data/model/siamese-lstm/best-to-date/' + 'common-adapted-SiameseLSTM.h5'
+        siamese_lstm_model = load_model(model_path, custom_objects={'AttentionLayer': AttentionLayer, 'GradientReversal': GradientReversal})
         tokenizer = embedding_meta_data['tokenizer']
 
         corpus = []
@@ -60,7 +62,7 @@ def main():
 
                 queriesWithDuplicates += 1
 
-                candidate_docs_bm25 = bm25.get_top_n(tokenized_query, corpus_to_query, n=10)
+                candidate_docs_bm25 = bm25.get_top_n(tokenized_query, corpus_to_query, n=20)
                 topn_similar_docs_as_pairs = []
                 topn_doc_indexes = []
 
@@ -71,7 +73,7 @@ def main():
                     topn_doc_indexes.append(candidate_docs_bm25[p][0])
 
                 test_data_x1, test_data_x2, leaks_test = create_test_data(tokenizer, topn_similar_docs_as_pairs, siamese_config['MAX_SEQUENCE_LENGTH'])
-                preds = list(siamese_lstm_model.predict([test_data_x1, test_data_x2, leaks_test], verbose=0).ravel())
+                preds = list(siamese_lstm_model.predict([test_data_x1, test_data_x2, leaks_test], verbose=0)[0].ravel())
                 results = [(x, y, z) for (x, y), z in zip(topn_similar_docs_as_pairs, preds)]
                 results = [(a, y, z) for (x, y, z), a in zip(results, topn_doc_indexes)]
                 results.sort(key=itemgetter(2), reverse=True) 
