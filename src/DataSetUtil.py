@@ -15,7 +15,7 @@ def get_df_from_csv_file(fileName):
 
 def get_part_df_from_csv_file(fileName, fromid, toid):
     trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
-    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup', 'DomainId']]
+    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Q2Ans', 'Dup', 'DomainId']]
     trainingData = trainingData[fromid:toid]
     return trainingData
 
@@ -63,13 +63,13 @@ def get_train_test_split_of_dataframe(dataFrame, withQid):
     dupYDf = dataFrame.loc[dataFrame['Dup'] == 1]
     print('Dup count :' + str(len(dupYDf.index)))
 
-    x = dataFrame[['Q1', 'Q2']]
+    x = dataFrame[['Q1', 'Q2', 'Q2Ans']]
     y = dataFrame[['Dup', 'DomainId']]
 
     if withQid:
-        x = dataFrame[['Q1','Q1ID', 'Q2','Q2ID']]
+        x = dataFrame[['Q1','Q1ID', 'Q2','Q2ID', 'Q2Ans']]
 
-    return model_selection.train_test_split(x, y)
+    return model_selection.train_test_split(x, y, test_size= 0.1)
 
 def review_to_wordlist(review, remove_stopwords=True):
     # Clean the text, with the option to remove stopwords.
@@ -129,18 +129,18 @@ def strip_tags(html):
 
 def num_of_records_for_domain(x):
     return {
-        'android': 3600,
-        'english': 4800,
-        'gaming': 4800,
-        'gis': 2400,
-        'mathematica': 3600,
-        'physics': 4800,
-        'programmers': 3600,
-        'stats': 2400,
-        'tex': 4800,
-        'unix': 4800,
-        'webmasters': 2400,
-        'wordpress': 1200
+        'android': 1866,
+        'english': 5076,
+        'gaming': 978,
+        'gis': 1302,
+        'mathematica': 2196,
+        'physics': 2637,
+        'programmers': 645,
+        'stats': 4560,
+        'tex': 2466,
+        'unix': 2466,
+        'webmasters': 1899,
+        'wordpress': 864
     }[x]
 
     '''

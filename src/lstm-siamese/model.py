@@ -136,7 +136,7 @@ class SiameseBiLSTM:
         #model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'])
 
         # early_stopping = EarlyStopping(monitor='val_loss', patience=50)
-        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=5)
+        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=10)
 
         checkpoint_dir = model_save_directory
 
@@ -153,7 +153,7 @@ class SiameseBiLSTM:
 
         model.fit([train_data_x1, train_data_x2, leaks_train], [train_labels, domains_train],
                   validation_data=([val_data_x1, val_data_x2, leaks_val], [val_labels, domains_val]),
-                  epochs=50, batch_size=48, shuffle=True,
+                  epochs=50, batch_size=96, shuffle=True,
                   callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=1)
 
         return bst_model_path

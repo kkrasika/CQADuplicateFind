@@ -91,15 +91,31 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
     maxNonDupCountPerQuestion = 2 #(math.floor(100/duplicatePercentage))-1
     recordCount = len(dup_rows) * 3
 
-    '''
-    recordCount = 4800 
+    recordCount = 1200
+    if (domain_id == 1):
+        recordCount = 1866
+    if (domain_id == 2):
+        recordCount = 5076
+    if (domain_id == 3):
+        recordCount = 3531
+    if (domain_id == 4):
+        recordCount = 978
+    if (domain_id == 5):
+        recordCount = 1302
+    if (domain_id == 6):
+        recordCount = 2196
+    if (domain_id == 7):
+        recordCount = 2637
+    if (domain_id == 8):
+        recordCount = 645
+    if (domain_id == 9):
+        recordCount = 4560
+    if (domain_id == 10):
+        recordCount = 2466
+    if (domain_id == 11):
+        recordCount = 1899
     if (domain_id == 12):
-        recordCount = 1200
-    elif (domain_id == 4 or domain_id == 8 or domain_id == 11):
-        recordCount = 2400
-    elif (domain_id == 1 or domain_id == 5 or domain_id == 7):
-        recordCount = 3600
-    '''
+        recordCount = 864
 
     nonDupSize = len(non_dup_rows)
 
@@ -117,7 +133,7 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
         q2Body = review_to_wordlist(strip_tags(dups.iloc[0].loc['body']))
         q2Id = str(dups.iloc[0].loc['QuestionID'])
         q2Answer = get_answer_text(dups.iloc[0], answerDF, True)
-        result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body+" "+q2Answer, 'Dup': 1, 'DomainId':domain_id})
+        result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Q2Ans': q2Answer, 'Dup': 1, 'DomainId':domain_id})
         #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title , 'Dup': 1})
         dupCount += 1
 
@@ -128,7 +144,8 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
             q2Title = review_to_wordlist(nonDupRow.loc['title'])
             q2Body = review_to_wordlist(strip_tags(nonDupRow.loc['body']))
             q2Id = str(nonDupRow.loc['QuestionID'])
-            result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Dup': 0, 'DomainId':domain_id})
+            q2Answer = get_answer_text(nonDupRow, answerDF, True)
+            result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Q2Ans': q2Answer, 'Dup': 0, 'DomainId':domain_id})
             # result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title, 'Dup': 0})
             nonDupCountPerQuestion += 1
             nonDupCount += 1
@@ -143,7 +160,8 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
                 q2Title = review_to_wordlist(nonDupRowFromEnd.loc['title'])
                 q2Body = review_to_wordlist(strip_tags(nonDupRowFromEnd.loc['body']))
                 q2Id  = str(nonDupRowFromEnd.loc['QuestionID'])
-                result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body,'Q2ID': q2Id,  'Q2': q2Title+" "+q2Body, 'Dup': 0, 'DomainId':domain_id})
+                q2Answer = get_answer_text(nonDupRowFromEnd, answerDF, True)
+                result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Q2Ans': q2Answer, 'Dup': 0, 'DomainId':domain_id})
                 #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title, 'Dup': 0})
                 nonDupCountPerQuestion += 1
                 nonDupCount += 1
