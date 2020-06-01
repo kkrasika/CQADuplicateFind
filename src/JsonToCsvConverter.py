@@ -7,6 +7,7 @@ from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 from html.parser import HTMLParser
 import re
+from DataSetUtil import num_of_records_for_domain_id
 
 recordCount = 1000
 duplicatePercentage = 33
@@ -92,30 +93,7 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
     recordCount = len(dup_rows) * 3
 
     recordCount = 1200
-    if (domain_id == 1):
-        recordCount = 1866
-    if (domain_id == 2):
-        recordCount = 5076
-    if (domain_id == 3):
-        recordCount = 3531
-    if (domain_id == 4):
-        recordCount = 978
-    if (domain_id == 5):
-        recordCount = 1302
-    if (domain_id == 6):
-        recordCount = 2196
-    if (domain_id == 7):
-        recordCount = 2637
-    if (domain_id == 8):
-        recordCount = 645
-    if (domain_id == 9):
-        recordCount = 4560
-    if (domain_id == 10):
-        recordCount = 2466
-    if (domain_id == 11):
-        recordCount = 1899
-    if (domain_id == 12):
-        recordCount = 864
+    recordCount = num_of_records_for_domain_id(domain_id)
 
     nonDupSize = len(non_dup_rows)
 
@@ -126,6 +104,7 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
         q1Title = review_to_wordlist(dupRow.loc['title'])
         q1Body = review_to_wordlist(strip_tags(dupRow.loc['body']))
         q1Id = str(dupRow.loc['QuestionID'])
+        q1Answer = get_answer_text(dupRow, answerDF, True)
 
         dupids = dupRow.loc['dups']
         dups = get_records(df, dupids)
@@ -133,7 +112,7 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
         q2Body = review_to_wordlist(strip_tags(dups.iloc[0].loc['body']))
         q2Id = str(dups.iloc[0].loc['QuestionID'])
         q2Answer = get_answer_text(dups.iloc[0], answerDF, True)
-        result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Q2Ans': q2Answer, 'Dup': 1, 'DomainId':domain_id})
+        result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q1Ans': q1Answer, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Q2Ans': q2Answer, 'Dup': 1, 'DomainId':domain_id})
         #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title , 'Dup': 1})
         dupCount += 1
 
@@ -145,7 +124,7 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
             q2Body = review_to_wordlist(strip_tags(nonDupRow.loc['body']))
             q2Id = str(nonDupRow.loc['QuestionID'])
             q2Answer = get_answer_text(nonDupRow, answerDF, True)
-            result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Q2Ans': q2Answer, 'Dup': 0, 'DomainId':domain_id})
+            result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q1Ans': q1Answer, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Q2Ans': q2Answer, 'Dup': 0, 'DomainId':domain_id})
             # result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title, 'Dup': 0})
             nonDupCountPerQuestion += 1
             nonDupCount += 1
@@ -157,11 +136,12 @@ def prepareDataSet(df, answerDF, non_dup_rows, dup_rows, domain_id):
                 q1Title = review_to_wordlist(nonDupRow.loc['title'])
                 q1Body = review_to_wordlist(strip_tags(nonDupRow.loc['body']))
                 q1Id = str(nonDupRow.loc['QuestionID'])
+                q1Answer = get_answer_text(nonDupRow, answerDF, True)
                 q2Title = review_to_wordlist(nonDupRowFromEnd.loc['title'])
                 q2Body = review_to_wordlist(strip_tags(nonDupRowFromEnd.loc['body']))
                 q2Id  = str(nonDupRowFromEnd.loc['QuestionID'])
                 q2Answer = get_answer_text(nonDupRowFromEnd, answerDF, True)
-                result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Q2Ans': q2Answer, 'Dup': 0, 'DomainId':domain_id})
+                result.append({'Q1ID': q1Id, 'Q1': q1Title+" "+q1Body, 'Q1Ans': q1Answer, 'Q2ID': q2Id, 'Q2': q2Title+" "+q2Body, 'Q2Ans': q2Answer, 'Dup': 0, 'DomainId':domain_id})
                 #result.append({'Q1ID': q1Id, 'Q1': q1Title, 'Q2ID': q2Id, 'Q2': q2Title, 'Dup': 0})
                 nonDupCountPerQuestion += 1
                 nonDupCount += 1
@@ -207,7 +187,7 @@ def create_csv_for_file(filename):
 
     trainingRecords = prepareDataSet(df, answerDF, non_dup_rows, dup_rows, f(filename))
 
-    trainDf = pd.DataFrame(columns=['Q1', 'Q2', 'Dup', 'DomainId'])
+    trainDf = pd.DataFrame(columns=['Q1ID', 'Q1', 'Q2ID' 'Q2', 'Q2Ans', 'Dup', 'DomainId'])
 
     trainDf = trainDf.append(trainingRecords, ignore_index=True, sort=True)
 
@@ -221,7 +201,7 @@ def create_csv_for_files(fileNames):
 
 def main():
     fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
-    #fileNameList = ['android', 'english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters']
+    #fileNameList = ['stats', 'tex', 'unix', 'webmasters', 'wordpress']
     #fileNameList = ['wordpress']
     create_csv_for_files(fileNameList)
 

@@ -9,13 +9,13 @@ from html.parser import HTMLParser
 def get_df_from_csv_file(fileName):
     print("----- Data frame for domain : " + str(fileName) + ' -----')
     trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
-    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Dup', 'DomainId']]
-    trainingData = trainingData[:4800]
+    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Q2Ans', 'Dup', 'DomainId']]
+    trainingData = trainingData[:num_of_records_for_domain(fileName)]
     return trainingData
 
 def get_part_df_from_csv_file(fileName, fromid, toid):
     trainDfFromCsv = pd.read_csv('../data/csv/' + fileName + '-training-data.csv', sep=',')
-    trainingData = trainDfFromCsv[['Q1','Q1ID', 'Q2','Q2ID', 'Q2Ans', 'Dup', 'DomainId']]
+    trainingData = trainDfFromCsv[['Q1','Q1ID','Q1Ans', 'Q2','Q2ID', 'Q2Ans', 'Dup', 'DomainId']]
     trainingData = trainingData[fromid:toid]
     return trainingData
 
@@ -63,13 +63,14 @@ def get_train_test_split_of_dataframe(dataFrame, withQid):
     dupYDf = dataFrame.loc[dataFrame['Dup'] == 1]
     print('Dup count :' + str(len(dupYDf.index)))
 
-    x = dataFrame[['Q1', 'Q2', 'Q2Ans']]
+    x = dataFrame[['Q1', 'Q2', 'Q1Ans', 'Q2Ans']]
     y = dataFrame[['Dup', 'DomainId']]
 
     if withQid:
-        x = dataFrame[['Q1','Q1ID', 'Q2','Q2ID', 'Q2Ans']]
+        x = dataFrame[['Q1','Q1ID','Q1Ans', 'Q2','Q2ID', 'Q2Ans']]
 
     return model_selection.train_test_split(x, y, test_size= 0.1)
+    #return model_selection.train_test_split(x, y)
 
 def review_to_wordlist(review, remove_stopwords=True):
     # Clean the text, with the option to remove stopwords.
@@ -131,33 +132,66 @@ def num_of_records_for_domain(x):
     return {
         'android': 1866,
         'english': 5076,
-        'gaming': 978,
-        'gis': 1302,
-        'mathematica': 2196,
-        'physics': 2637,
-        'programmers': 645,
-        'stats': 4560,
-        'tex': 2466,
+        'gaming': 3531,
+        'gis': 978,
+        'mathematica': 1302,
+        'physics': 2196,
+        'programmers': 2637,
+        'stats': 645,
+        'tex': 4560,
         'unix': 2466,
         'webmasters': 1899,
         'wordpress': 864
     }[x]
 
-    '''
+'''
     return {
-        'android' : 3600,
-        'english' : 2400,
-        'gaming' : 2400,
-        'gis' : 2400,
-        'mathematica' : 2400,
-        'physics' : 4800,
-        'programmers' : 2400,
-        'stats' : 2400,
-        'tex' : 2400,
-        'unix' : 2400,
-        'webmasters' : 2400,
-        'wordpress' : 1200
+        'android': 3600,
+        'english': 4800,
+        'gaming': 4800,
+        'gis': 2400,
+        'mathematica': 3600,
+        'physics': 4800,
+        'programmers': 3600,
+        'stats': 2400,
+        'tex': 4800,
+        'unix': 4800,
+        'webmasters': 2400,
+        'wordpress': 1200
     }[x]
-    '''
+    
+'''
 
+def num_of_records_for_domain_id(x):
+    return {
+        1: 1866,
+        2: 5076,
+        3: 3531,
+        4: 978,
+        5: 1302,
+        6: 2196,
+        7: 2637,
+        8: 645,
+        9: 4560,
+        10: 2466,
+        11: 1899,
+        12: 864
+    }[x]
 
+'''
+    return {
+        1: 3600,
+        2: 4800,
+        3: 4800,
+        4: 2400,
+        5: 3600,
+        6: 4800,
+        7: 3600,
+        8: 2400,
+        9: 4800,
+        10: 4800,
+        11: 2400,
+        12: 1200
+    }[x]
+    
+'''
