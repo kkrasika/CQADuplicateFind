@@ -1,5 +1,5 @@
 from model import SiameseBiLSTM
-from inputHandler import word_embed_meta_data, create_test_data
+from inputHandler import word_embed_meta_data, create_test_data_for_bert
 from config import siamese_config
 from tensorflow.python.keras.models import load_model
 import numpy as np
@@ -7,12 +7,16 @@ from sklearn import preprocessing
 from layers.attention import AttentionLayer
 
 from DataSetUtil import get_doc2vec_model_for_csv_file, get_df_from_csv_files_combined, get_train_test_split_of_dataframe, get_df_from_csv_file, get_shuffeled_df_from_csv_files_combined
-from model import GradientReversal
+from CustomLayers import GradientReversal, BertLayer
 
-def evaluate_model(model, valid_x, valid_y, valid_domain_list):
+import tensorflow as tf
+# Initialize session
+sess = tf.Session()
+
+def evaluate_model(siamese_lstm_model_full, valid_input_ids, valid_input_masks, valid_segment_ids, valid_input2_ids, valid_input2_masks, valid_segment2_ids, valid_labels, valid_domains):
 
     #preds = list(model.predict(valid_x, verbose=0).ravel())
-    score = model.evaluate(valid_x, [np.array(valid_y), np.array(valid_domain_list)], verbose=0)
+    score = siamese_lstm_model_full.evaluate([valid_input_ids, valid_input_masks, valid_segment_ids, valid_input2_ids, valid_input2_masks, valid_segment2_ids], [np.array(valid_labels), np.array(valid_domains)], verbose=0)
 
     return '', score
 
@@ -37,6 +41,29 @@ def train_model(train_x, train_y, train_domain, embedding_meta_data, filename):
                             CONFIG.activation_function, CONFIG.validation_split_ratio)
 
     best_model_path = siamese.train_model(train_x, train_y, train_domain, embedding_meta_data,filename, model_save_directory='../data/model/siamese-lstm/')
+    return best_model_path
+
+def train_model_for_bert(train_x, train_y, train_domain, sess, filename):
+
+    class Configuration(object):
+        """Dump stuff here"""
+
+    CONFIG = Configuration()
+
+    CONFIG.embedding_dim = siamese_config['EMBEDDING_DIM']
+    CONFIG.max_sequence_length = siamese_config['MAX_SEQUENCE_LENGTH']
+    CONFIG.number_lstm_units = siamese_config['NUMBER_LSTM']
+    CONFIG.rate_drop_lstm = siamese_config['RATE_DROP_LSTM']
+    CONFIG.number_dense_units = siamese_config['NUMBER_DENSE_UNITS']
+    CONFIG.activation_function = siamese_config['ACTIVATION_FUNCTION']
+    CONFIG.rate_drop_dense = siamese_config['RATE_DROP_DENSE']
+    CONFIG.validation_split_ratio = siamese_config['VALIDATION_SPLIT']
+
+    siamese = SiameseBiLSTM(CONFIG.embedding_dim, CONFIG.max_sequence_length, CONFIG.number_lstm_units,
+                            CONFIG.number_dense_units, CONFIG.rate_drop_lstm, CONFIG.rate_drop_dense,
+                            CONFIG.activation_function, CONFIG.validation_split_ratio)
+
+    best_model_path = siamese.train_bert_model(train_x, train_y, train_domain, filename, sess, model_save_directory='../data/model/siamese-lstm/')
     return best_model_path
 
 def get_doc2vec_vectors_train_valid_split(trainingData):
@@ -77,45 +104,29 @@ def get_doc2vec_vectors_train_valid_split(trainingData):
     del sentences1_validate
     del sentences2_validate
 
-    test_data_x1, test_data_x2, leaks_test = create_test_data(tokenizer, sentences_pairs_validate,
-                                                              siamese_config['MAX_SEQUENCE_LENGTH'])
-    test_data_x = [test_data_x1, test_data_x2, leaks_test]
+    valid_input_ids, valid_input_masks, valid_segment_ids, valid_input2_ids, valid_input2_masks, valid_segment2_ids, valid_labels, valid_domains = create_test_data_for_bert(sentences_pairs_validate, is_similar_validate, valid_domain_list,
+                                                              siamese_config['MAX_SEQUENCE_LENGTH'], sess)
 
-    return sentences_pairs, is_similar, train_domain_list, test_data_x, is_similar_validate, valid_domain_list, embedding_meta_data
+    return sentences_pairs, is_similar, train_domain_list, valid_input_ids, valid_input_masks, valid_segment_ids, valid_input2_ids, valid_input2_masks, valid_segment2_ids, valid_labels, valid_domains
 
 def main():
 
     fileNameList = ['android','english', 'gaming', 'gis', 'mathematica', 'physics', 'programmers', 'stats', 'tex', 'unix', 'webmasters', 'wordpress']
+    #fileNameList = ['wordpress']
 
     # For combined file
     outputFile = open('../data/output/result5.txt', 'a')
     df_combined = get_shuffeled_df_from_csv_files_combined(fileNameList, 5400, 48)
-    train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_combined)
-    model_path = train_model(train_x, train_y, train_domain_list, embedding_meta_data, 'paper/modelv1')
+    sentences_pairs, is_similar, train_domain_list, valid_input_ids, valid_input_masks, valid_segment_ids, valid_input2_ids, valid_input2_masks, valid_segment2_ids, valid_labels, valid_domains = get_doc2vec_vectors_train_valid_split(df_combined)
+    model_path = train_model_for_bert(sentences_pairs, is_similar, train_domain_list, sess, 'paper/modelv1')
     #model_path = '../data/model/siamese-lstm/paper/' + 'modelv1'+'-'+siamese_config['MODEL_FILE_NAME']
-    siamese_lstm_model_full = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer, 'GradientReversal' :GradientReversal})
-    preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_x, valid_y, valid_domain_list)
+    siamese_lstm_model_full = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer, 'GradientReversal' :GradientReversal, 'BertLayer' :BertLayer})
+    preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_input_ids, valid_input_masks, valid_segment_ids, valid_input2_ids, valid_input2_masks, valid_segment2_ids, valid_labels, valid_domains)
     print('Accuracy for : ' + 'full' + ' Siamese LSTM 0 : ' + str(accuracy[0]), file=outputFile)
     print('Accuracy for : ' + 'full' + ' Siamese LSTM 1 : ' + str(accuracy[1]), file=outputFile)
     print('Accuracy for : ' + 'full' + ' Siamese LSTM 2 : ' + str(accuracy[2]), file=outputFile)
     print('Accuracy for : ' + 'full' + ' Siamese LSTM 3 : ' + str(accuracy[3]), file=outputFile)
     outputFile.close()
-
-    '''
-    # For each file
-    for fileName in fileNameList:
-        outputFile = open('../data/output/result5.txt', 'a')
-        df_for_file = get_df_from_csv_file(fileName)
-        train_x, train_y, train_domain_list, valid_x, valid_y, valid_domain_list, embedding_meta_data = get_doc2vec_vectors_train_valid_split(df_for_file)
-        model_path_domain = train_model(train_x, train_y, train_domain_list, embedding_meta_data, fileName)
-        siamese_lstm_model_domain = load_model(model_path_domain, custom_objects={'AttentionLayer': AttentionLayer, 'GradientReversal': GradientReversal})
-        preds, accuracy = evaluate_model(siamese_lstm_model_domain, valid_x, valid_y, valid_domain_list)
-        print('Accuracy [Domain] for : ' + fileName + ' Siamese LSTM 0 : ' + str(accuracy[0]), file=outputFile)
-        print('Accuracy [Domain] for : ' + fileName + ' Siamese LSTM 1 : ' + str(accuracy[1]), file=outputFile)
-        print('Accuracy [Domain] for : ' + fileName + ' Siamese LSTM 2 : ' + str(accuracy[2]), file=outputFile)
-        print('Accuracy [Domain] for : ' + fileName + ' Siamese LSTM 3 : ' + str(accuracy[3]), file=outputFile)
-        outputFile.close()
-    '''
 
 if __name__ == '__main__':
     main()

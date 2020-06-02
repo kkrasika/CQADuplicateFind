@@ -8,24 +8,19 @@ from tensorflow.python.keras.callbacks import TensorBoard
 from tensorflow.python.keras.models import load_model
 from tensorflow.python.keras.models import Model
 from config import siamese_config
+from CustomLayers import GradientReversal, BertLayer
+import tensorflow as tf
+from tensorflow.keras import backend as K
 
 # std imports
 import time
-import gc
 import os
-from tensorflow.python.keras.engine import Layer
 
-from inputHandler import create_train_dev_set
+from inputHandler import create_train_dev_set, create_train_dev_set_for_bert
 from layers.attention import AttentionLayer
-from keras.layers.wrappers import TimeDistributed
-import tensorflow.python.keras.backend as K
-from tensorflow.python.framework import ops
-import tensorflow as tf
-from math import exp
-
 
 class SiameseBiLSTM:
-    def __init__(self, embedding_dim, max_sequence_length, number_lstm, number_dense, rate_drop_lstm, 
+    def __init__(self, embedding_dim, max_sequence_length, number_lstm, number_dense, rate_drop_lstm,
                  rate_drop_dense, hidden_activation, validation_split_ratio):
         self.embedding_dim = embedding_dim
         self.max_sequence_length = max_sequence_length
@@ -101,6 +96,70 @@ class SiameseBiLSTM:
 
         return model
 
+    def construct_model_for_bert(self):
+
+        in_id_x1 = tf.keras.layers.Input(shape=(self.max_sequence_length,), name="input_ids")
+        in_mask_x1 = tf.keras.layers.Input(shape=(self.max_sequence_length,), name="input_masks")
+        in_segment_x1 = tf.keras.layers.Input(shape=(self.max_sequence_length,), name="segment_ids")
+        bert_inputs_x1 = [in_id_x1, in_mask_x1, in_segment_x1]
+
+        in_id_x2 = tf.keras.layers.Input(shape=(self.max_sequence_length,), name="input2_ids")
+        in_mask_x2 = tf.keras.layers.Input(shape=(self.max_sequence_length,), name="input2_masks")
+        in_segment_x2 = tf.keras.layers.Input(shape=(self.max_sequence_length,), name="segment2_ids")
+        bert_inputs_x2 = [in_id_x2, in_mask_x2, in_segment_x2]
+
+        # Creating LSTM Encoder
+        lstm_layer_encode = Bidirectional(
+            LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm,
+                 return_sequences=True))
+
+        # Creating LSTM Encoder layer for First Sentence
+        embedded_sequences_1 = BertLayer(n_fine_tune_layers=3)(bert_inputs_x1)
+        embedded_sequences_1 = tf.expand_dims(embedded_sequences_1, axis=-1)
+        x1_out = lstm_layer_encode(embedded_sequences_1)
+
+        # Creating LSTM Dncoder
+        lstm_layer_decode = Bidirectional(
+            LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm,
+                 return_sequences=True))
+
+        # Creating LSTM Encoder layer for Second Sentence
+        embedded_sequences_2 = BertLayer(n_fine_tune_layers=3)(bert_inputs_x2)
+        embedded_sequences_2 = tf.expand_dims(embedded_sequences_2, axis=-1)
+        x2_out = lstm_layer_decode(embedded_sequences_2)
+
+        # Attention layer
+        attn_layer = AttentionLayer(name='attention_layer')
+        attn_out, attn_states = attn_layer([x1_out, x2_out])
+
+        # Concat attention input and decoder LSTM output
+        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([x2_out, attn_out])
+
+        # Creating LSTM Dncoder
+        lstm_layer_final = Bidirectional(
+            LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm))
+        lstm_out = lstm_layer_final(decoder_concat_input)
+
+        # Merging two LSTM encodes vectors from sentences to
+        # pass it to dense layer applying dropout and batch normalisation
+        #merged = concatenate([lstm_out], axis=1)
+        merged = BatchNormalization()(lstm_out)
+        merged = Dropout(self.rate_drop_dense)(merged)
+        merged = Dense(self.number_dense_units, activation=self.activation_function)(merged)
+        merged = BatchNormalization()(merged)
+        merged = Dropout(self.rate_drop_dense)(merged)
+
+        preds = Dense(1, activation='sigmoid', name='duplicate_classifier')(merged)
+
+        # Domain Adaptation section - classify the domain
+        flip_layer = GradientReversal(self.lambda_reversal)
+        dann_in = flip_layer(merged)
+        dnn_out = Dense(12, activation='softmax', name='domain_classifier')(dann_in)
+
+        model = Model(inputs=[in_id_x1, in_mask_x1, in_segment_x1, in_id_x2, in_mask_x2, in_segment_x2], outputs=[preds, dnn_out])
+
+        return model
+
     def train_model(self, sentences_pair, is_similar, train_domain, embedding_meta_data, filename, model_save_directory='./'):
         """
         Train Siamese network to find similarity between sentences in `sentences_pair`
@@ -136,7 +195,7 @@ class SiameseBiLSTM:
         #model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'])
 
         # early_stopping = EarlyStopping(monitor='val_loss', patience=50)
-        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=10)
+        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=2)
 
         checkpoint_dir = model_save_directory
 
@@ -153,7 +212,7 @@ class SiameseBiLSTM:
 
         model.fit([train_data_x1, train_data_x2, leaks_train], [train_labels, domains_train],
                   validation_data=([val_data_x1, val_data_x2, leaks_val], [val_labels, domains_val]),
-                  epochs=50, batch_size=48, shuffle=True,
+                  epochs=3, batch_size=4, shuffle=True,
                   callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=1)
 
         return bst_model_path
@@ -200,43 +259,45 @@ class SiameseBiLSTM:
 
         return new_model_path
 
-def reverse_gradient(X, hp_lambda):
-    '''Flips the sign of the incoming gradient during training.'''
-    try:
-        reverse_gradient.num_calls += 1
-    except AttributeError:
-        reverse_gradient.num_calls = 1
 
-    grad_name = "GradientReversal%d" % reverse_gradient.num_calls
+    def train_bert_model(self, sentences_pair, is_similar, train_domain, filename, sess, model_save_directory='./'):
 
-    @tf.RegisterGradient(grad_name)
-    def _flip_gradients(op, grad):
-        return [tf.negative(grad) * hp_lambda]
+        train_input_ids, train_input_masks, train_segment_ids, train_input2_ids, train_input2_masks, train_segment2_ids, train_labels, train_domains = create_train_dev_set_for_bert(sentences_pair,
+                                                                               is_similar, train_domain, self.max_sequence_length, sess)
 
-    g = K.get_session().graph
-    with g.gradient_override_map({'Identity': grad_name}):
-        y = tf.identity(X)
+        model = self.construct_model_for_bert()
 
-    return y
+        # model.compile(loss='binary_crossentropy', optimizer='nadam', metrics=['acc'])
+        model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'], loss_weights={'duplicate_classifier': 1, 'domain_classifier': 1})
+        #model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'])
 
-class GradientReversal(Layer):
-    '''Flip the sign of gradient during training.'''
-    def __init__(self, hp_lambda, **kwargs):
-        super(GradientReversal, self).__init__(**kwargs)
-        self.supports_masking = False
-        self.hp_lambda = hp_lambda
+        # early_stopping = EarlyStopping(monitor='val_loss', patience=50)
+        early_stopping = EarlyStopping(monitor='val_duplicate_classifier_acc', min_delta=0.001, patience=10)
 
-    def build(self, input_shape):
-        self._trainable_weights = []
+        checkpoint_dir = model_save_directory
 
-    def call(self, x, mask=None):
-        return reverse_gradient(x, self.hp_lambda)
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
 
-    def get_output_shape_for(self, input_shape):
-        return input_shape
+        bst_model_path = checkpoint_dir + filename+'-'+siamese_config['MODEL_FILE_NAME']
 
-    def get_config(self):
-        config = {'hp_lambda': self.hp_lambda}
-        base_config = super(GradientReversal, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        model_checkpoint = ModelCheckpoint(bst_model_path, save_best_only=True, save_weights_only=False)
 
+        tensorboard = TensorBoard(log_dir=checkpoint_dir + "logs/{}".format(time.time()))
+
+        print(model.summary())
+
+        initialize_vars(sess)
+
+        model.fit([train_input_ids, train_input_masks, train_segment_ids, train_input2_ids, train_input2_masks, train_segment2_ids], [train_labels, train_domains],
+                  epochs=3, batch_size=4, shuffle=True,
+                  validation_split=0.1,
+                  callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=1)
+
+        return bst_model_path
+
+def initialize_vars(sess):
+    sess.run(tf.local_variables_initializer())
+    sess.run(tf.global_variables_initializer())
+    sess.run(tf.tables_initializer())
+    K.set_session(sess)

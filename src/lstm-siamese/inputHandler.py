@@ -5,6 +5,7 @@ from gensim.models import FastText
 import numpy as np
 import gc
 import pandas as pd
+from DataSetUtil import create_tokenizer_from_hub_module, convert_text_to_examples, convert_examples_to_features
 
 
 def train_word2vec(documents, embedding_dim):
@@ -155,3 +156,66 @@ def create_test_data(tokenizer, test_sentences_pair, max_sequence_length):
     test_data_2 = pad_sequences(test_sequences_2, maxlen=max_sequence_length)
 
     return test_data_1, test_data_2, leaks_test
+
+def create_train_dev_set_for_bert(sentences_pair, is_similar, train_domains_in, max_sequence_length, sess):
+
+    bert_path = "../data/model/bert_uncased_L-12_H-768_A-12_1"
+
+    # Instantiate tokenizer
+    tokenizer = create_tokenizer_from_hub_module(bert_path, sess)
+
+    # Convert data to InputExample format
+    train_examples = convert_text_to_examples(sentences_pair, is_similar, train_domains_in)
+
+    # Convert to features
+    (
+        train_input_ids,
+        train_input_masks,
+        train_segment_ids,
+        train_labels
+    ) = convert_examples_to_features(
+        tokenizer, train_examples, max_seq_length=max_sequence_length, sent1 =True
+    )
+
+    # Convert to features
+    (
+        train_input2_ids,
+        train_input2_masks,
+        train_segment2_ids,
+        train_labels2
+    ) = convert_examples_to_features(
+        tokenizer, train_examples, max_seq_length=max_sequence_length
+    )
+
+    return train_input_ids, train_input_masks, train_segment_ids, train_input2_ids, train_input2_masks, train_segment2_ids, train_labels, train_domains_in
+
+def create_test_data_for_bert(test_sentences_pair, is_similar_validate, valid_domain_list, max_sequence_length, sess):
+    bert_path = "../data/model/bert_uncased_L-12_H-768_A-12_1"
+
+    # Instantiate tokenizer
+    tokenizer = create_tokenizer_from_hub_module(bert_path, sess)
+
+    # Convert data to InputExample format
+    train_examples = convert_text_to_examples(test_sentences_pair, is_similar_validate, valid_domain_list)
+
+    # Convert to features
+    (
+        valid_input_ids,
+        valid_input_masks,
+        valid_segment_ids,
+        valid_labels
+    ) = convert_examples_to_features(
+        tokenizer, train_examples, max_seq_length=max_sequence_length, sent1 =True
+    )
+
+    # Convert to features
+    (
+        valid_input2_ids,
+        valid_input2_masks,
+        valid_segment2_ids,
+        valid_labels2
+    ) = convert_examples_to_features(
+        tokenizer, train_examples, max_seq_length=max_sequence_length
+    )
+
+    return valid_input_ids, valid_input_masks, valid_segment_ids, valid_input2_ids, valid_input2_masks, valid_segment2_ids, valid_labels, valid_domain_list
