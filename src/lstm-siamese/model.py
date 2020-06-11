@@ -8,9 +8,10 @@ from tensorflow.python.keras.callbacks import TensorBoard
 from tensorflow.python.keras.models import load_model
 from tensorflow.python.keras.models import Model
 from config import siamese_config
-from CustomLayers import GradientReversal, BertLayer
+from CustomLayers import GradientReversal, BertLayer, XLNETLayer
 import tensorflow as tf
 from tensorflow.keras import backend as K
+from transformers import (TFXLNetModel, XLNetTokenizer)
 
 # std imports
 import time
@@ -160,13 +161,10 @@ class SiameseBiLSTM:
 
         return model
 
-    def construct_model_for_xlnet(self):
+    def construct_model_for_xlnet(self, tokenizer, xlnetmodel):
 
-        input_x1 = tf.keras.layers.Input(shape=(768,), name="input1_ids")
-        in_id_x1 = tf.expand_dims(input_x1, axis=-1)
-
-        input_x2 = tf.keras.layers.Input(shape=(768,), name="input2_ids")
-        in_id_x2 = tf.expand_dims(input_x2, axis=-1)
+        input_x1 = tf.keras.layers.Input(shape=(self.max_sequence_length,), name="input1_ids", dtype='int32')
+        input_x2 = tf.keras.layers.Input(shape=(self.max_sequence_length,), name="input2_ids", dtype='int32')
 
         # Creating LSTM Encoder
         lstm_layer_encode = Bidirectional(
@@ -174,7 +172,8 @@ class SiameseBiLSTM:
                  return_sequences=True))
 
         # Creating LSTM Encoder layer for First Sentence
-        x1_out = lstm_layer_encode(in_id_x1)
+        embedded_sequences_1 = XLNETLayer(tokenizer, xlnetmodel)(input_x1)
+        x1_out = lstm_layer_encode(embedded_sequences_1)
 
         # Creating LSTM Dncoder
         lstm_layer_decode = Bidirectional(
@@ -182,7 +181,8 @@ class SiameseBiLSTM:
                  return_sequences=True))
 
         # Creating LSTM Encoder layer for Second Sentence
-        x2_out = lstm_layer_decode(in_id_x2)
+        embedded_sequences_2 = XLNETLayer(tokenizer, xlnetmodel)(input_x2)
+        x2_out = lstm_layer_decode(embedded_sequences_2)
 
         # Attention layer
         attn_layer = AttentionLayer(name='attention_layer')
@@ -329,7 +329,11 @@ class SiameseBiLSTM:
         train_input1_ids, train_input2_ids, train_labels, train_domains = create_train_dev_set_for_xlnet(sentences_pair,
                                                                                is_similar, train_domain, self.max_sequence_length)
 
-        model = self.construct_model_for_xlnet()
+        model_file_address = '../data/model/xlnet/xlnet-base-cased'
+        xlnetmodel = TFXLNetModel.from_pretrained(model_file_address)
+        tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
+
+        model = self.construct_model_for_xlnet(xlnetmodel, tokenizer)
 
         # model.compile(loss='binary_crossentropy', optimizer='nadam', metrics=['acc'])
         model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'], loss_weights={'duplicate_classifier': 1, 'domain_classifier': 1})

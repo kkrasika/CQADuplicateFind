@@ -7,7 +7,7 @@ from sklearn import preprocessing
 from layers.attention import AttentionLayer
 
 from DataSetUtil import get_doc2vec_model_for_csv_file, get_df_from_csv_files_combined, get_train_test_split_of_dataframe, get_df_from_csv_file, get_shuffeled_df_from_csv_files_combined
-from CustomLayers import GradientReversal, BertLayer
+from CustomLayers import GradientReversal, XLNETLayer
 
 import tensorflow as tf
 from transformers import (TFXLNetModel, XLNetTokenizer)
@@ -122,7 +122,7 @@ def main():
     sentences_pairs, is_similar, train_domain_list, valid_input_ids, valid_input2_ids, valid_labels, valid_domains = get_doc2vec_vectors_train_valid_split(df_combined)
     model_path = train_model_for_bert(sentences_pairs, is_similar, train_domain_list, None, 'paper/modelv1')
     #model_path = '../data/model/siamese-lstm/paper/' + 'modelv1'+'-'+siamese_config['MODEL_FILE_NAME']
-    siamese_lstm_model_full = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer, 'GradientReversal' :GradientReversal, 'BertLayer' :BertLayer})
+    siamese_lstm_model_full = load_model(model_path, custom_objects={'AttentionLayer' : AttentionLayer, 'GradientReversal' :GradientReversal, 'XLNETLayer' :XLNETLayer})
     preds, accuracy = evaluate_model(siamese_lstm_model_full, valid_input_ids, valid_input2_ids, valid_labels, valid_domains)
     print('Accuracy for : ' + 'full' + ' Siamese LSTM 0 : ' + str(accuracy[0]), file=outputFile)
     print('Accuracy for : ' + 'full' + ' Siamese LSTM 1 : ' + str(accuracy[1]), file=outputFile)

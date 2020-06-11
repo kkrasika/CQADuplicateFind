@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras import backend as K
 import tensorflow_hub as hub
+from transformers import (TFXLNetModel, XLNetTokenizer)
 
 @tf.custom_gradient
 def grad_reverse(x):
@@ -107,3 +108,15 @@ class BertLayer(tf.keras.layers.Layer):
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.output_size)
+
+class XLNETLayer(tf.keras.layers.Layer):
+    def __init__(self,tokenizer, xlnetmodel):
+
+        self.model = tokenizer
+        self.tokenizer = xlnetmodel
+        super().__init__()
+
+    def call(self, x):
+        #input_ids_single = tf.constant(x)[None, :]
+        outputs_single = self.model(x)
+        return outputs_single[0]

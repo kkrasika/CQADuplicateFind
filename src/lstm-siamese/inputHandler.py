@@ -9,6 +9,7 @@ from DataSetUtil import create_tokenizer_from_hub_module, convert_text_to_exampl
 import tensorflow as tf
 from transformers import (TFXLNetModel, XLNetTokenizer)
 from copy import copy
+from tqdm import tqdm
 
 def train_word2vec(documents, embedding_dim):
     """
@@ -225,43 +226,40 @@ def create_test_data_for_bert(test_sentences_pair, is_similar_validate, valid_do
 
 def create_train_dev_set_for_xlnet(sentences_pair, is_similar, train_domains_in, max_sequence_length):
 
-    sentences1 = [str(x[0]).lower() for x in sentences_pair]
-    sentences2 = [str(x[1]).lower() for x in sentences_pair]
-
     model_file_address = '../data/model/xlnet/xlnet-base-cased'
-    model = TFXLNetModel.from_pretrained(model_file_address)
-    tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
+    tokenizer = XLNetTokenizer.from_pretrained(model_file_address)
 
-    '''
-    input1_ids = tf.constant(tokenizer.encode(sentences1, add_special_tokens=True))[None, :]  # Batch size 1
-    outputs1 = model(input1_ids)
-    last_hidden_states1 = outputs1[0]
-    '''
-    input1_ids = [tf.constant(tokenizer.encode(x1, add_special_tokens=True))[None, :] for x1 in sentences1]
-    outputs1 = [model(x) for x in input1_ids]
-    last_hidden_states1 = outputs1 #np.array(outputs1)
+    input1_ids, input2_ids = [], []
+    for sentence in tqdm(sentences_pair, desc="Converting examples to features"):
 
-    input2_ids = [tf.constant(tokenizer.encode(x2, add_special_tokens=True))[None, :] for x2 in sentences2]
-    outputs2 = [model(x) for x in input2_ids]
-    last_hidden_states2 = outputs2 #np.array(outputs2)
+        encode1 = tokenizer.encode(str(sentence[0]).lower(), add_special_tokens=True)
+        input1_ids.append(encode1)
+        encode2 = tokenizer.encode(str(sentence[1]).lower(), add_special_tokens=True)
+        input2_ids.append(encode2)
 
-    return last_hidden_states1, last_hidden_states2, list(is_similar), train_domains_in
+    return (
+        pad_sequences(input1_ids, maxlen=max_sequence_length),
+        pad_sequences(input2_ids, maxlen=max_sequence_length),
+        np.array(list(is_similar)),
+        np.array(train_domains_in)
+    )
 
 def create_test_data_for_xlnet(test_sentences_pair, is_similar_validate, valid_domain_list, max_sequence_length):
 
-    sentences1 = [str(x[0]).lower() for x in test_sentences_pair]
-    sentences2 = [str(x[1]).lower() for x in test_sentences_pair]
-
     model_file_address = '../data/model/xlnet/xlnet-base-cased'
-    model = TFXLNetModel.from_pretrained(model_file_address)
-    tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
+    tokenizer = XLNetTokenizer.from_pretrained(model_file_address)
 
-    input1_ids = [tf.constant(tokenizer.encode(x1, add_special_tokens=True))[None, :] for x1 in sentences1]
-    outputs1 = [model(x) for x in input1_ids]
-    last_hidden_states1 = outputs1 #np.array(outputs1)
+    input1_ids, input2_ids = [], []
+    for sentence in tqdm(test_sentences_pair, desc="Converting examples to features"):
 
-    input2_ids = [tf.constant(tokenizer.encode(x2, add_special_tokens=True))[None, :] for x2 in sentences2]
-    outputs2 = [model(x) for x in input2_ids]
-    last_hidden_states2 = outputs2 #np.array(outputs2)
+        encode1 = tokenizer.encode(str(sentence[0]).lower(), add_special_tokens=True)
+        input1_ids.append(encode1)
+        encode2 = tokenizer.encode(str(sentence[1]).lower(), add_special_tokens=True)
+        input2_ids.append(encode2)
 
-    return last_hidden_states1, last_hidden_states2, list(is_similar_validate), valid_domain_list
+    return (
+        pad_sequences(input1_ids, maxlen=max_sequence_length),
+        pad_sequences(input2_ids, maxlen=max_sequence_length),
+        np.array(list(is_similar_validate)),
+        np.array(valid_domain_list)
+    )
