@@ -16,7 +16,7 @@ from tensorflow.keras import backend as K
 import time
 import os
 
-from inputHandler import create_train_dev_set, create_train_dev_set_for_bert
+from inputHandler import create_train_dev_set, create_train_dev_set_for_bert, create_train_dev_set_for_xlnet
 from layers.attention import AttentionLayer
 
 class SiameseBiLSTM:
@@ -160,6 +160,62 @@ class SiameseBiLSTM:
 
         return model
 
+    def construct_model_for_xlnet(self):
+
+        input_x1 = tf.keras.layers.Input(shape=(768,), name="input1_ids")
+        in_id_x1 = tf.expand_dims(input_x1, axis=-1)
+
+        input_x2 = tf.keras.layers.Input(shape=(768,), name="input2_ids")
+        in_id_x2 = tf.expand_dims(input_x2, axis=-1)
+
+        # Creating LSTM Encoder
+        lstm_layer_encode = Bidirectional(
+            LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm,
+                 return_sequences=True))
+
+        # Creating LSTM Encoder layer for First Sentence
+        x1_out = lstm_layer_encode(in_id_x1)
+
+        # Creating LSTM Dncoder
+        lstm_layer_decode = Bidirectional(
+            LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm,
+                 return_sequences=True))
+
+        # Creating LSTM Encoder layer for Second Sentence
+        x2_out = lstm_layer_decode(in_id_x2)
+
+        # Attention layer
+        attn_layer = AttentionLayer(name='attention_layer')
+        attn_out, attn_states = attn_layer([x1_out, x2_out])
+
+        # Concat attention input and decoder LSTM output
+        decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([x2_out, attn_out])
+
+        # Creating LSTM Dncoder
+        lstm_layer_final = Bidirectional(
+            LSTM(self.number_lstm_units, dropout=self.rate_drop_lstm, recurrent_dropout=self.rate_drop_lstm))
+        lstm_out = lstm_layer_final(decoder_concat_input)
+
+        # Merging two LSTM encodes vectors from sentences to
+        # pass it to dense layer applying dropout and batch normalisation
+        #merged = concatenate([lstm_out], axis=1)
+        merged = BatchNormalization()(lstm_out)
+        merged = Dropout(self.rate_drop_dense)(merged)
+        merged = Dense(self.number_dense_units, activation=self.activation_function)(merged)
+        merged = BatchNormalization()(merged)
+        merged = Dropout(self.rate_drop_dense)(merged)
+
+        preds = Dense(1, activation='sigmoid', name='duplicate_classifier')(merged)
+
+        # Domain Adaptation section - classify the domain
+        flip_layer = GradientReversal()
+        dann_in = flip_layer(merged)
+        dnn_out = Dense(12, activation='softmax', name='domain_classifier')(dann_in)
+
+        model = Model(inputs=[input_x1, input_x2], outputs=[preds, dnn_out])
+
+        return model
+
     def train_model(self, sentences_pair, is_similar, train_domain, embedding_meta_data, filename, model_save_directory='./'):
         """
         Train Siamese network to find similarity between sentences in `sentences_pair`
@@ -262,10 +318,18 @@ class SiameseBiLSTM:
 
     def train_bert_model(self, sentences_pair, is_similar, train_domain, filename, sess, model_save_directory='./'):
 
+        '''
+        # Bert
         train_input_ids, train_input_masks, train_segment_ids, train_input2_ids, train_input2_masks, train_segment2_ids, train_labels, train_domains = create_train_dev_set_for_bert(sentences_pair,
                                                                                is_similar, train_domain, self.max_sequence_length, sess)
-
         model = self.construct_model_for_bert()
+        '''
+
+        # XLNet
+        train_input1_ids, train_input2_ids, train_labels, train_domains = create_train_dev_set_for_xlnet(sentences_pair,
+                                                                               is_similar, train_domain, self.max_sequence_length)
+
+        model = self.construct_model_for_xlnet()
 
         # model.compile(loss='binary_crossentropy', optimizer='nadam', metrics=['acc'])
         model.compile(loss={'duplicate_classifier': 'binary_crossentropy', 'domain_classifier': 'sparse_categorical_crossentropy'}, optimizer='nadam', metrics=['acc'], loss_weights={'duplicate_classifier': 1, 'domain_classifier': 1})
@@ -287,9 +351,9 @@ class SiameseBiLSTM:
 
         print(model.summary())
 
-        initialize_vars(sess)
+        #initialize_vars(sess)
 
-        model.fit([train_input_ids, train_input_masks, train_segment_ids, train_input2_ids, train_input2_masks, train_segment2_ids], [train_labels, train_domains],
+        model.fit([train_input1_ids, train_input2_ids], [train_labels, train_domains],
                   epochs=3, batch_size=4, shuffle=True,
                   validation_split=0.1,
                   callbacks=[early_stopping, model_checkpoint, tensorboard],verbose=1)

@@ -6,7 +6,9 @@ import numpy as np
 import gc
 import pandas as pd
 from DataSetUtil import create_tokenizer_from_hub_module, convert_text_to_examples, convert_examples_to_features
-
+import tensorflow as tf
+from transformers import (TFXLNetModel, XLNetTokenizer)
+from copy import copy
 
 def train_word2vec(documents, embedding_dim):
     """
@@ -219,3 +221,47 @@ def create_test_data_for_bert(test_sentences_pair, is_similar_validate, valid_do
     )
 
     return valid_input_ids, valid_input_masks, valid_segment_ids, valid_input2_ids, valid_input2_masks, valid_segment2_ids, valid_labels, valid_domain_list
+
+
+def create_train_dev_set_for_xlnet(sentences_pair, is_similar, train_domains_in, max_sequence_length):
+
+    sentences1 = [str(x[0]).lower() for x in sentences_pair]
+    sentences2 = [str(x[1]).lower() for x in sentences_pair]
+
+    model_file_address = '../data/model/xlnet/xlnet-base-cased'
+    model = TFXLNetModel.from_pretrained(model_file_address)
+    tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
+
+    '''
+    input1_ids = tf.constant(tokenizer.encode(sentences1, add_special_tokens=True))[None, :]  # Batch size 1
+    outputs1 = model(input1_ids)
+    last_hidden_states1 = outputs1[0]
+    '''
+    input1_ids = [tf.constant(tokenizer.encode(x1, add_special_tokens=True))[None, :] for x1 in sentences1]
+    outputs1 = [model(x) for x in input1_ids]
+    last_hidden_states1 = outputs1 #np.array(outputs1)
+
+    input2_ids = [tf.constant(tokenizer.encode(x2, add_special_tokens=True))[None, :] for x2 in sentences2]
+    outputs2 = [model(x) for x in input2_ids]
+    last_hidden_states2 = outputs2 #np.array(outputs2)
+
+    return last_hidden_states1, last_hidden_states2, list(is_similar), train_domains_in
+
+def create_test_data_for_xlnet(test_sentences_pair, is_similar_validate, valid_domain_list, max_sequence_length):
+
+    sentences1 = [str(x[0]).lower() for x in test_sentences_pair]
+    sentences2 = [str(x[1]).lower() for x in test_sentences_pair]
+
+    model_file_address = '../data/model/xlnet/xlnet-base-cased'
+    model = TFXLNetModel.from_pretrained(model_file_address)
+    tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
+
+    input1_ids = [tf.constant(tokenizer.encode(x1, add_special_tokens=True))[None, :] for x1 in sentences1]
+    outputs1 = [model(x) for x in input1_ids]
+    last_hidden_states1 = outputs1 #np.array(outputs1)
+
+    input2_ids = [tf.constant(tokenizer.encode(x2, add_special_tokens=True))[None, :] for x2 in sentences2]
+    outputs2 = [model(x) for x in input2_ids]
+    last_hidden_states2 = outputs2 #np.array(outputs2)
+
+    return last_hidden_states1, last_hidden_states2, list(is_similar_validate), valid_domain_list

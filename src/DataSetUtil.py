@@ -147,7 +147,8 @@ def num_of_records_for_domain(x):
         'tex': 4560,
         'unix': 2466,
         'webmasters': 1899,
-        'wordpress': 864
+        #'wordpress': 864
+        'wordpress': 50
     }[x]
 
 '''
